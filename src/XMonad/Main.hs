@@ -61,7 +61,7 @@ xmonad conf = do
     installSignalHandlers -- important to ignore SIGCHLD to avoid zombies
 
     let launch' args = do
-              catchIO buildLaunch
+              catchIO (buildLaunch conf)
               conf' @ XConfig { layoutHook = Layout l }
                   <- handleExtraArgs conf args conf{ layoutHook = Layout (layoutHook conf) }
               withArgs [] $ launch (conf' { layoutHook = l })
@@ -70,7 +70,9 @@ xmonad conf = do
     case args of
         ("--resume": ws : xs : args') -> migrateState ws xs >> launch' args'
         ["--help"]            -> usage
-        ["--recompile"]       -> recompile True >>= flip unless exitFailure
+        ["--recompile"]       -> do
+            result <- handleRecompile conf ForceRecompile
+            when (result == RecompileFailure) exitFailure
         ["--restart"]         -> sendRestart
         ["--version"]         -> putStrLn $ unwords shortVersion
         ["--verbose-version"] -> putStrLn . unwords $ shortVersion ++ longVersion
@@ -112,21 +114,54 @@ usage = do
 --
 --   * Missing XMonad\/XMonadContrib modules due to ghc upgrade
 --
-buildLaunch ::  IO ()
-buildLaunch = do
+buildLaunch :: XConfig l -> IO ()
+buildLaunch conf = do
     whoami <- getProgName
     let compiledConfig = "xmonad-"++arch++"-"++os
     unless (whoami == compiledConfig) $ do
-      trace $ concat
-        [ "XMonad is recompiling and replacing itself another XMonad process because the current process is called "
-        , show whoami
-        , " but the compiled configuration should be called "
-        , show compiledConfig
-        ]
-      recompile False
-      dir  <- getXMonadDataDir
-      args <- getArgs
-      executeFile (dir </> compiledConfig) False args Nothing
+        trace $ concat
+            [ "XMonad is compiling and replacing itself with another XMonad process because the current process is called "
+            , show whoami
+            , " but the compiled configuration should be called "
+            , show compiledConfig
+            ]
+        result <- handleRecompile conf NoForceRecompile
+        compileSuccessful <- case result of
+            RecompileSuccess -> trace "XMonad configuration compilation successful!" >> return True
+            RecompileSkipped -> trace "XMonad configuration compilation skipped." >> return True
+            RecompileFailure -> trace "XMonad configuration compilation failed." >> return False
+        dir <- getXMonadDataDir
+        let compiledFile = dir </> compiledConfig
+        exists <- doesFileExist compiledFile
+        isOk <-
+            if exists
+                then do
+                    isExe <- isExecutable compiledFile
+                    if isExe
+                        then return True
+                        else do
+                            trace $ concat
+                                [ "Error: Not executing compiled XMonad process because "
+                                , show compiledFile
+                                , " is not executable."
+                                ]
+                            return False
+                else do
+                    trace $ concat
+                        [ "Error: Expected the XMonad compilation to output "
+                        , show compiledFile
+                        , ", but it does not exist."
+                        ]
+                    return False
+        when isOk $ do
+            unless compileSuccessful $ trace $ concat
+               [ "Warning: XMonad compilation failed, but "
+               , show compiledFile
+               , " exists, so executing it anyway."
+               ]
+            args <- getArgs
+            executeFile compiledFile False args Nothing
+  where isExecutable f = E.catch (executable <$> getPermissions f) (\(E.SomeException _) -> return False)
 
 sendRestart :: IO ()
 sendRestart = do

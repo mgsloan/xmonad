@@ -28,7 +28,9 @@ module XMonad.Core (
     getAtom, spawn, spawnPID, xfork, recompile, trace, whenJust, whenX,
     getXMonadDir, getXMonadCacheDir, getXMonadDataDir, stateFileName,
     atom_WM_STATE, atom_WM_PROTOCOLS, atom_WM_DELETE_WINDOW, atom_WM_TAKE_FOCUS, withWindowAttributes,
-    ManageHook, Query(..), runQuery
+    ManageHook, Query(..), runQuery,
+    ForceRecompile(..), RecompileStatus(..), defaultRecompile,
+    RunRecompileArgs(..), BuildType(..), defaultRunRecompile
   ) where
 
 import XMonad.StackSet hiding (modify)
@@ -121,6 +123,8 @@ data XConfig l = XConfig
     , rootMask           :: !EventMask           -- ^ The root events that xmonad is interested in
     , handleExtraArgs    :: !([String] -> XConfig Layout -> IO (XConfig Layout))
                                                  -- ^ Modify the configuration, complain about extra arguments etc. with arguments that are not handled by default
+    , handleRecompile    :: !(ForceRecompile -> IO RecompileStatus)
+                                                 -- ^ Handle recompilation of xmonad configuration. Default: @defaultRecompile defaultRunRecompile@
     }
 
 
@@ -570,10 +574,41 @@ data XDGDirectory = XDGData | XDGConfig | XDGCache
 stateFileName :: MonadIO m => m FilePath
 stateFileName = (</> "xmonad.state") <$> getXMonadDataDir
 
--- | 'recompile force', recompile the xmonad configuration file when
--- any of the following apply:
+-- |
 --
---      * force is 'True'
+--
+recompile :: MonadIO m => Bool -> m Bool
+recompile force = io $ do
+    result <- defaultRecompile defaultRunRecompile $ case force of
+        True -> ForceRecompile
+        False -> NoForceRecompile
+    return (result /= RecompileFailure)
+
+-- | Whether 'defaultRecompile' should force recompile when using GHC.
+data ForceRecompile = ForceRecompile | NoForceRecompile deriving (Eq, Show)
+
+-- | Whether recompilation succeeded, was unnecessary, or failed.
+data RecompileStatus = RecompileSuccess | RecompileSkipped | RecompileFailure deriving (Eq, Show)
+
+-- | @defaultRecompile runRecompile force@, either runs the script
+-- called @build@ if it exists, or uses GHC to recompile @xmonad.hs@. It
+-- is used to implement the 'handleRecompile' portion of your config.
+--
+-- The first argument is a function to run the compilation and show the
+-- results to the user (particularly error results). The standard
+-- implementation of this is 'defaultRunRecompile'. The purpose of
+-- splitting it up like this is so that you can override the by setting
+-- @handleRecompile = defaultRecompile customRunRecompile@, where
+-- @customRunRecompile@ handles the rebuild and informing the user about
+-- the compilation. If you want to write a @customRunRecompile@, it is
+-- recommended that you take a look at the code for
+-- 'defaultRunRecompile', as there is some trickiness with signals.
+--
+-- When using the @build@ script, recompilation will always occur.
+-- Otherwise, recompiling with GHC will occur when any of the following
+-- apply:
+--
+--      * @force@ parameter is @ForceRecompile@
 --
 --      * the xmonad executable does not exist
 --
@@ -587,15 +622,13 @@ stateFileName = (</> "xmonad.state") <$> getXMonadDataDir
 -- in the xmonad data directory.  If GHC indicates failure with a
 -- non-zero exit code, an xmessage displaying that file is spawned.
 --
--- 'False' is returned if there are compilation errors.
---
-recompile :: MonadIO m => Bool -> m Bool
-recompile force = io $ do
+-- 'RecompileFailure' is returned if there are compilation errors.
+defaultRecompile :: (RunRecompileArgs -> IO ExitCode) -> ForceRecompile -> IO RecompileStatus
+defaultRecompile runRecompile force = do
     cfgdir  <- getXMonadDir
     datadir <- getXMonadDataDir
     let binn = "xmonad-"++arch++"-"++os
         bin  = datadir </> binn
-        err  = datadir </> "xmonad.errors"
         src  = cfgdir </> "xmonad.hs"
         lib  = cfgdir </> "lib"
         buildscript = cfgdir </> "build"
@@ -625,7 +658,7 @@ recompile force = io $ do
           return False
 
     shouldRecompile <-
-      if useBuildscript || force
+      if useBuildscript || (force == ForceRecompile)
         then return True
         else if any (binT <) (srcT : libTs)
           then do
@@ -637,35 +670,34 @@ recompile force = io $ do
 
     if shouldRecompile
       then do
-        -- temporarily disable SIGCHLD ignoring:
-        uninstallSignalHandlers
-        status <- bracket (openFile err WriteMode) hClose $ \errHandle ->
-            waitForProcess =<< if useBuildscript
-                               then compileScript bin cfgdir buildscript errHandle
-                               else compileGHC bin cfgdir errHandle
-
-        -- re-enable SIGCHLD:
-        installSignalHandlers
-
-        -- now, if it fails, run xmessage to let the user know:
-        if status == ExitSuccess
-            then trace "XMonad recompilation process exited with success!"
-            else do
-                ghcErr <- readFile err
-                let msg = unlines $
-                        [ if useBuildscript
-                            then "Error while running xmonad configuration build script: " ++ buildscript
-                            else "Error while compiling xmonad configuration file: " ++ src
-                        ]
-                        ++ lines (if null ghcErr then show status else ghcErr)
-                        ++ ["","Please check for errors."]
-                -- nb, the ordering of printing, then forking, is crucial due to
-                -- lazy evaluation
-                hPutStrLn stderr msg
-                forkProcess $ executeFile "xmessage" True ["-default", "okay", replaceUnicode msg] Nothing
-                return ()
-        return (status == ExitSuccess)
-      else return True
+        let (cmd, args)
+                | useBuildscript = (buildscript, [bin])
+                | otherwise =
+                    ( "ghc"
+                    , ["--make"
+                      , "xmonad.hs"
+                      , "-i"
+                      , "-ilib"
+                      , "-fforce-recomp"
+                      , "-main-is", "main"
+                      , "-v0"
+                      , "-o", bin
+                      ]
+                    )
+        ec <- runRecompile RunRecompileArgs
+            { recompileWorkDir = cfgdir
+            , recompileExecutable = cmd
+            , recompileArguments = args
+            , recompileBuildType =
+                if useBuildscript
+                    then BuildScript buildscript
+                    else BuildGhc src
+            , recompileOutputBinary = bin
+            }
+        return $ case ec of
+            ExitSuccess -> RecompileSuccess
+            ExitFailure{} -> RecompileFailure
+      else return RecompileSkipped
  where getModTime f = E.catch (Just <$> getModificationTime f) (\(SomeException _) -> return Nothing)
        isSource = flip elem [".hs",".lhs",".hsc"] . takeExtension
        isExecutable f = E.catch (executable <$> getPermissions f) (\(SomeException _) -> return False)
@@ -674,24 +706,75 @@ recompile force = io $ do
             cs <- prep <$> E.catch (getDirectoryContents t) (\(SomeException _) -> return [])
             ds <- filterM doesDirectoryExist cs
             concat . ((cs \\ ds):) <$> mapM allFiles ds
-       -- Replace some of the unicode symbols GHC uses in its output
+
+-- | Arguments to a function which recompiles the configuration. An
+-- example of such a function is 'defaultRunRecompile'.
+data RunRecompileArgs = RunRecompileArgs
+    { recompileWorkDir :: FilePath
+        -- ^ Working dir for the recompilation process. Is the result of
+        -- 'getXMonadDir'.
+    , recompileExecutable :: FilePath
+        -- ^ Executable to invoke for recompilation. This is typically
+        -- either @"ghc"@ or a path to the build script.
+    , recompileArguments :: [String]
+        -- ^ Arguments to the recompilation process.
+    , recompileBuildType :: BuildType
+        -- ^ Which type of build is being performed.
+    , recompileOutputBinary :: FilePath
+        -- ^ Path to the output binary.
+    }
+
+-- | Which type of build 'defaultRunRecompile' is doing.
+data BuildType = BuildScript FilePath | BuildGhc FilePath
+
+-- | This function is intended to be used as an argument to
+-- 'defaultRecompile'. It provides an implementation of running the
+-- build process and reporting errors to the user via @xmessage@.
+defaultRunRecompile :: RunRecompileArgs -> IO ExitCode
+defaultRunRecompile args = do
+    datadir <- getXMonadDataDir
+    let err  = datadir </> "xmonad.errors"
+
+    status <-
+        -- temporarily disable SIGCHLD
+        bracket uninstallSignalHandlers (\() -> installSignalHandlers) $ \() ->
+        bracket (openFile err WriteMode) hClose $ \errHandle -> do
+            ph <- runProcess
+                (recompileExecutable args)
+                (recompileArguments args)
+                (Just (recompileWorkDir args))
+                Nothing
+                Nothing
+                Nothing
+                (Just errHandle)
+            waitForProcess ph
+
+    -- now, if it fails, run xmessage to let the user know:
+    if status == ExitSuccess
+        then trace "XMonad recompilation process exited with success!"
+        else do
+            ghcErr <- readFile err
+            let msg = unlines $
+                    [ case recompileBuildType args of
+                        BuildScript buildscript ->
+                            "Error while running xmonad configuration build script: " ++ buildscript
+                        BuildGhc src ->
+                            "Error while compiling xmonad configuration file: " ++ src
+                    ]
+                    ++ lines (if null ghcErr then show status else ghcErr)
+                    ++ ["","Please check for errors."]
+            -- nb, the ordering of printing, then forking, is crucial due to
+            -- lazy evaluation
+            hPutStrLn stderr msg
+            forkProcess $ executeFile "xmessage" True ["-default", "okay", replaceUnicode msg] Nothing
+            return ()
+    return status
+ where -- Replace some of the unicode symbols GHC uses in its output
        replaceUnicode = map $ \c -> case c of
            '\8226' -> '*'  -- •
            '\8216' -> '`'  -- ‘
            '\8217' -> '`'  -- ’
            _ -> c
-       compileGHC bin dir errHandle =
-         runProcess "ghc" ["--make"
-                          , "xmonad.hs"
-                          , "-i"
-                          , "-ilib"
-                          , "-fforce-recomp"
-                          , "-main-is", "main"
-                          , "-v0"
-                          , "-o", bin
-                          ] (Just dir) Nothing Nothing Nothing (Just errHandle)
-       compileScript bin dir script errHandle =
-         runProcess script [bin] (Just dir) Nothing Nothing Nothing (Just errHandle)
 
 -- | Conditionally run an action, using a @Maybe a@ to decide.
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()

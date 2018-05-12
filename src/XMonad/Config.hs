@@ -277,6 +277,7 @@ instance (a ~ Choose Tall (Choose (Mirror Tall) Full)) => Default (XConfig a) wh
     , XMonad.handleExtraArgs = \ xs theConf -> case xs of
                 [] -> return theConf
                 _ -> fail ("unrecognized flags:" ++ show xs)
+    , XMonad.handleRecompile    = defaultRecompile defaultRunRecompile
     }
 
 -- | The default set of configuration values itself
