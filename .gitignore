@@ -7,8 +7,10 @@ cabal.sandbox.config
 *.prof
 *.tix
 cabal.config
+/cabal.project.local
 dist
 dist-*
+.stack-work/
 
 # editor temp files
 
@@ -20,7 +22,3 @@ dist-*
 # TAGS files
 TAGS
 tags
-
-# stack artifacts
-/.stack-work/
-/cabal.project.local
