@@ -58,7 +58,6 @@ import Graphics.X11.Xlib.Extras (getWindowAttributes, WindowAttributes, Event)
 import Data.Typeable
 import Data.List ((\\))
 import Data.Maybe (isJust,fromMaybe)
-import Data.Monoid hiding ((<>))
 import System.Environment (lookupEnv)
 
 import qualified Data.Map as M
@@ -568,7 +567,7 @@ getXDGDirectory xdgDir suffix =
 data XDGDirectory = XDGData | XDGConfig | XDGCache
 
 -- | Get the name of the file used to store the xmonad window state.
-stateFileName :: (Functor m, MonadIO m) => m FilePath
+stateFileName :: MonadIO m => m FilePath
 stateFileName = (</> "xmonad.state") <$> getXMonadDataDir
 
 -- | 'recompile force', recompile the xmonad configuration file when
