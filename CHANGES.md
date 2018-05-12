@@ -35,6 +35,9 @@
     recompile, by outputting logs to stderr. If you are using xmonad as a custom
     X session, then this will end up in a `.xsession-errors` file.
 
+  * It is now possible to override the recompilation implementation by setting
+    the `handleRecompile` field of your configuration.
+
 ## 0.13 (February 10, 2017)
 
 ### Breaking Changes
