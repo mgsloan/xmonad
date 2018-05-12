@@ -653,9 +653,12 @@ recompile force = io $ do
             else do
                 ghcErr <- readFile err
                 let msg = unlines $
-                        ["Error detected while loading xmonad configuration file: " ++ src]
+                        [ if useBuildscript
+                            then "Error while running xmonad configuration build script: " ++ buildscript
+                            else "Error while compiling xmonad configuration file: " ++ src
+                        ]
                         ++ lines (if null ghcErr then show status else ghcErr)
-                        ++ ["","Please check the file for errors."]
+                        ++ ["","Please check for errors."]
                 -- nb, the ordering of printing, then forking, is crucial due to
                 -- lazy evaluation
                 hPutStrLn stderr msg
