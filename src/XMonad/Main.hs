@@ -62,7 +62,11 @@ xmonad conf = do
 
     dirs <- getDirectories
     let launch' args = do
-              catchIO (buildLaunch dirs)
+              -- NOTE: mgsloan modification, I prefer explicit
+              -- recompile instead of recompiling on every startup
+              -- where the name mismatches..
+              --
+              -- catchIO (buildLaunch dirs)
               conf'@XConfig { layoutHook = Layout l }
                   <- handleExtraArgs conf args conf{ layoutHook = Layout (layoutHook conf) }
               withArgs [] $ launch (conf' { layoutHook = l }) dirs
@@ -96,6 +100,8 @@ usage = do
         "  --restart                    Request a running xmonad process to restart" :
         []
 
+{- See NOTE above
+
 -- | Build the xmonad configuration file with ghc, then execute it.
 -- If there are no errors, this function does not return.  An
 -- exception is raised in any of these cases:
@@ -127,6 +133,7 @@ buildLaunch dirs = do
       recompile dirs False
       args <- getArgs
       executeFile bin False args Nothing
+-}
 
 sendRestart :: IO ()
 sendRestart = do
