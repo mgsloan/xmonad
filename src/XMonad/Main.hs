@@ -61,7 +61,11 @@ xmonad conf = do
     installSignalHandlers -- important to ignore SIGCHLD to avoid zombies
 
     let launch' args = do
-              catchIO (buildLaunch conf)
+              -- NOTE: mgsloan modification, I prefer explicit
+              -- recompile instead of recompiling on every startup
+              -- where the name mismatches..
+              --
+              -- catchIO (buildLaunch conf)
               conf' @ XConfig { layoutHook = Layout l }
                   <- handleExtraArgs conf args conf{ layoutHook = Layout (layoutHook conf) }
               withArgs [] $ launch (conf' { layoutHook = l })
@@ -97,6 +101,8 @@ usage = do
         "  --replace                    Replace the running window manager with xmonad" :
         "  --restart                    Request a running xmonad process to restart" :
         []
+
+{- See NOTE above
 
 -- | Build the xmonad configuration file with ghc, then execute it.
 -- If there are no errors, this function does not return.  An
@@ -162,6 +168,7 @@ buildLaunch conf = do
             args <- getArgs
             executeFile compiledFile False args Nothing
   where isExecutable f = E.catch (executable <$> getPermissions f) (\(E.SomeException _) -> return False)
+-}
 
 sendRestart :: IO ()
 sendRestart = do
