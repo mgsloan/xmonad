@@ -14,7 +14,7 @@
 --
 -----------------------------------------------------------------------------
 
-module XMonad.Main (xmonad, launch) where
+module XMonad.Main (xmonad, launch, sendRestart) where
 
 import System.Locale.SetLocale
 import qualified Control.Exception.Extensible as E
