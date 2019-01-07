@@ -794,7 +794,8 @@ trace = io . hPutStrLn stderr
 installSignalHandlers :: MonadIO m => m ()
 installSignalHandlers = io $ do
     installHandler openEndedPipe Ignore Nothing
-    installHandler sigCHLD Ignore Nothing
+    -- Note: mgsloan modification to allow for waiting for processes
+    -- installHandler sigCHLD Ignore Nothing
     (try :: IO a -> IO (Either SomeException a))
       $ fix $ \more -> do
         x <- getAnyProcessStatus False False
@@ -804,5 +805,6 @@ installSignalHandlers = io $ do
 uninstallSignalHandlers :: MonadIO m => m ()
 uninstallSignalHandlers = io $ do
     installHandler openEndedPipe Default Nothing
-    installHandler sigCHLD Default Nothing
+    -- Note: mgsloan modification to allow for waiting for processes
+    -- installHandler sigCHLD Default Nothing
     return ()
