@@ -348,6 +348,16 @@ data RiverWindow = RiverWindow
   , rwIdentifier :: !(Maybe ByteString)
   , rwParent     :: !(Maybe ObjectId)
   , rwDimensions :: !(Int32, Int32)
+  , rwProposed   :: !(Maybe (Int32, Int32))
+    -- ^ The dimensions most recently sent to this window with
+    -- @propose_dimensions@, or 'Nothing' if none have been.
+    --
+    -- Deliberately not 'rwDimensions'.  A proposal is a request, and the
+    -- @dimensions@ event answering it carries what the window actually
+    -- settled on after applying its own constraints, so for any window with
+    -- a size increment or a minimum the two legitimately differ forever.
+    -- Re-proposing on that difference never converges.  What can be compared
+    -- is one proposal against the next, which is what this holds.
   , rwSizeHints  :: !SizeHints
     -- ^ From @river_window_v1.dimensions_hint@.  A zero or negative bound
     -- means the window did not state one, and becomes 'Nothing'.

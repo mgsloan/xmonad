@@ -595,6 +595,7 @@ addWindow rt conn win = do
     , rwAppId = Nothing, rwTitle = Nothing, rwPid = Nothing
     , rwIdentifier = Nothing, rwParent = Nothing
     , rwDimensions = (0, 0)
+    , rwProposed = Nothing
     , rwSizeHints = noSizeHints
     , rwNew = True, rwClosed = False, rwFullscreen = False, rwHidden = False
     }
@@ -1363,8 +1364,10 @@ transmitManage rt conn = do
       (if ssd then riverWindowV1UseSsd else riverWindowV1UseCsd) conn w
     OpSetPosition w x y -> forM_ (M.lookup w known) $ \rw ->
       riverNodeV1SetPosition conn (rwNode rw) x y
-    OpProposeDimensions w dw dh -> when (M.member w known) $
+    OpProposeDimensions w dw dh -> when (M.member w known) $ do
       riverWindowV1ProposeDimensions conn w (fromIntegral dw) (fromIntegral dh)
+      adjust (rtWindows rt) w $ \x ->
+        x { rwProposed = Just (fromIntegral dw, fromIntegral dh) }
     OpCaptureInput ks mods oneShot gen -> armCapture rt conn seats ks mods oneShot gen
     OpUngrabKeys -> do
       old <- atomicModifyIORef' (rtGrabbed rt) (\bs -> ([], bs))
@@ -1394,10 +1397,28 @@ transmitManage rt conn = do
     OpSetXcursorTheme{} -> pure ()
 
   -- Dimensions are window management state, so they go here rather than in
-  -- the render sequence.
-  forM_ (planPlacements plan) $ \(win, r) -> when (M.member win known) $
-    riverWindowV1ProposeDimensions conn win
-      (fromIntegral (rect_width r)) (fromIntegral (rect_height r))
+  -- the render sequence -- and, being state river keeps, only when the answer
+  -- has moved.  Rendering state is restated in full every frame because river
+  -- forgets it; a proposal is remembered, so restating one is not a no-op but
+  -- a fresh request the server must answer with another @dimensions@ event.
+  --
+  -- Sending it unconditionally is a feedback loop.  Every manage sequence
+  -- re-drove the geometry of every window; each window that could not take the
+  -- proposal exactly settled somewhere else and had its edges move across a
+  -- stationary pointer; river reported the crossing as a genuine
+  -- @pointer_enter@; and with 'focusFollowsMouse' on that crossing queued an
+  -- action, which asked for a manage sequence, which proposed again.  Three
+  -- terminals were enough to sustain it at some seven hundred layout runs a
+  -- second, and a floating GTK dialog -- proposed 1x1 and unable to go below
+  -- its own minimum -- made it permanent.
+  --
+  -- The comparison is against the last proposal, never against the
+  -- @dimensions@ event: see 'rwProposed'.
+  forM_ (planPlacements plan) $ \(win, r) -> forM_ (M.lookup win known) $ \w -> do
+    let want = (fromIntegral (rect_width r), fromIntegral (rect_height r))
+    when (rwProposed w /= Just want) $ do
+      uncurry (riverWindowV1ProposeDimensions conn win) want
+      adjust (rtWindows rt) win $ \x -> x { rwProposed = Just want }
 
   -- Keyboard focus, likewise. A seat whose keyboard has gone to a layer
   -- surface is left alone: river discards focus requests outright while focus
