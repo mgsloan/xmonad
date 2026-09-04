@@ -74,6 +74,7 @@ import XMonad.River.Wire (ObjectId, isNullObject)
 import XMonad.River.Types
 import XMonad.River.Plan
 import XMonad.River.State (InputCapture(..), RiverState(..))
+import XMonad.River.Trace (initTrace, showPlacements, traceLine)
 import qualified XMonad.StackSet as W
 
 --------------------------------------------------------------------------------
@@ -161,6 +162,7 @@ data Runtime = Runtime
 -- | Connect to river and run the window manager. Does not return.
 riverMain :: XConfig Layout -> Directories -> IO ()
 riverMain userConfig dirs = do
+  initTrace (cfgDir dirs)
   conn <- connect
   (registry, globals) <- getRegistry conn
   mManager <- bindGlobal conn registry globals
@@ -719,6 +721,7 @@ addSeat rt conn seat = do
     -- notifyNormal@ to ignore the crossings a grab synthesises; river sends
     -- this only for genuine pointer movement, so there is nothing to filter.
     RiverSeatV1PointerEnter win -> do
+      traceLine ("enter win=" ++ show win)
       writeIORef (rtHovered rt) (Just win)
       when (rtFollowsMouse rt) $ queueAction rt $ do
         -- Both conditions are about the delay.  The action runs at the start
@@ -731,7 +734,9 @@ addSeat rt conn seat = do
         stillThere <- io ((== Just win) <$> readIORef (rtHovered rt))
         drag <- gets dragging
         when (stillThere && isNothing drag) (focus win)
-    RiverSeatV1PointerLeave -> writeIORef (rtHovered rt) Nothing
+    RiverSeatV1PointerLeave -> do
+      traceLine "leave"
+      writeIORef (rtHovered rt) Nothing
     RiverSeatV1PointerPosition x y ->
       adjust ref seat $ \s -> s { rsPointer = (x, y) }
     -- A surface this window manager drew was pressed.  X11 delivered that as a
@@ -1263,6 +1268,15 @@ applyLayout rt = do
           Nothing -> pixelColor (if Just win == mFocus then focusedCol else normalCol)
     pure (win, (width, rgba))
 
+  -- The order the screens were visited in, and everything the layout placed.
+  -- 'screens' above is @W.current : W.visible@, so this order is a function of
+  -- which screen holds focus -- and it is the order the render sequence
+  -- @place_top@s in.  A trace that shows it permuting while nothing moves is
+  -- what tells a restacking loop apart from a geometry one.
+  io $ traceLine $ "layout screens="
+    ++ show [ (W.screen scr, W.tag (W.workspace scr)) | scr <- screens ]
+    ++ " placed=" ++ showPlacements placements
+
   raised <- io . readIORef =<< asks (riverRestack . riverState)
   let placed = S.fromList (map fst placements)
       stillUp = filter (`S.member` placed) raised
@@ -1327,6 +1341,9 @@ transmitManage rt conn = do
   plan <- readIORef (rtPlan rt)
   known <- readIORef (rtWindows rt)
   seats <- readIORef (rtSeats rt)
+
+  traceLine $ "manage serial=" ++ show (planSerial plan)
+    ++ " focus=" ++ show (planFocus plan)
 
   -- What user code asked for since the last sequence.  Drained rather than
   -- kept: every one of these is an effect river performs once, so re-sending
@@ -1540,6 +1557,13 @@ transmitRender rt conn = do
   plan <- readIORef (rtPlan rt)
   let winRef = rtWindows rt
   known <- readIORef winRef
+
+  -- Bottom-to-top, as transmitted: river's own @place_top@ appends, so the
+  -- last id here is the one that ends up on top -- and so the one that wins a
+  -- hit test where two windows' borders overlap.
+  traceLine $ "render serial=" ++ show (planSerial plan)
+    ++ " order=" ++ show (map fst (planPlacements plan))
+    ++ " raised=" ++ show (planRaised plan)
 
   forM_ (planPlacements plan) $ \(win, r) -> forM_ (M.lookup win known) $ \w -> do
     riverNodeV1SetPosition conn (rwNode w) (rect_x r) (rect_y r)
