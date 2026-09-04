@@ -948,12 +948,24 @@ syncScreens = do
                 _ -> Rectangle x y (fromIntegral width) (fromIntegral height)
         ]
   unless (null rects) $ do
-    before <- gets (map (screenRect . W.screenDetail) . screensOf . windowset)
-    modify $ \st -> st { windowset = rescreen rects (windowset st) }
+    -- In SCREEN-ID order, to line up with @rects@, which is sorted by output
+    -- position.  'screensOf' yields current-first, which is a different order
+    -- as soon as the focused screen is not screen 0 -- comparing that list
+    -- directly reported a change on nearly every sequence.
+    before <- gets (map (screenRect . W.screenDetail) . sortOn W.screen . screensOf . windowset)
     -- Only when it actually changed.  A manage sequence runs for all sorts of
-    -- reasons and most of them leave the outputs alone; a config restarting
-    -- its status bars on every one of them would be unusable.
-    when (before /= rects) $ void (broadcastEvent ScreenLayoutChanged)
+    -- reasons and most of them leave the outputs alone.
+    --
+    -- Guarding the rescreen itself, not merely the broadcast, is the point.
+    -- 'rescreen' reassigns workspaces to screens and forces the focused one
+    -- onto screen 0 -- which is correct when the outputs have genuinely
+    -- changed and ruinous when they have not.  Running it on every sequence
+    -- dragged the focused workspace onto the leftmost monitor after every
+    -- keystroke, so windows appeared to wander between monitors at random and
+    -- screen-directed commands never seemed to work.
+    when (before /= rects) $ do
+      modify $ \st -> st { windowset = rescreen rects (windowset st) }
+      void (broadcastEvent ScreenLayoutChanged)
 
 -- | The screens a 'WindowSet' currently has, current first.
 screensOf :: WindowSet -> [W.Screen WorkspaceId (Layout Window) Window ScreenId ScreenDetail]
