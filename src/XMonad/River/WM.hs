@@ -1227,7 +1227,27 @@ runPending rt = do
 applyLayout :: Runtime -> X ()
 applyLayout rt = do
   ws <- gets windowset
-  let screens = W.current ws : W.visible ws
+  -- By screen id, and NOT @W.current : W.visible@.
+  --
+  -- The render sequence @place_top@s the concatenation of these in order, so
+  -- this is the stacking order.  Written the other way it is a function of
+  -- which screen holds focus -- 'W.view' moves the newly focused screen to the
+  -- head and pushes the old one behind it -- so alternating focus between two
+  -- screens alternates their windows' relative stacking, forever.
+  --
+  -- That is a feedback loop with 'focusFollowsMouse' on, and it was the cause
+  -- of all three storms on 2026-09-04.  river draws a window's borders outside
+  -- its box, so two windows on either side of the seam between two outputs
+  -- overlap there; restacking them changes which one answers river's hit test;
+  -- river reports the new one as @pointer_enter@; hovering turns that into a
+  -- focus change; and the focus change restacks them back.  Measured at 1-4 ms
+  -- a lap, with nothing moving and no geometry changing at all -- which is why
+  -- the @propose_dimensions@ guard, a correct fix for a real defect, did
+  -- nothing for it.
+  --
+  -- Screens are disjoint, so the order between them carries no meaning.  All
+  -- it has to be is stable.
+  let screens = sortOn W.screen (W.current ws : W.visible ws)
   placements <- fmap concat $ forM screens $ \scr -> do
     let wsp = W.workspace scr
         SD rect = W.screenDetail scr
