@@ -1268,14 +1268,22 @@ applyLayout rt = do
           Nothing -> pixelColor (if Just win == mFocus then focusedCol else normalCol)
     pure (win, (width, rgba))
 
-  -- The order the screens were visited in, and everything the layout placed.
-  -- 'screens' above is @W.current : W.visible@, so this order is a function of
-  -- which screen holds focus -- and it is the order the render sequence
-  -- @place_top@s in.  A trace that shows it permuting while nothing moves is
-  -- what tells a restacking loop apart from a geometry one.
+  -- What is actually transmitted: the same placements with the border taken
+  -- out of them, per window, since a border override may make one window's
+  -- wider than the rest.  'placements' itself stays as the layout produced it
+  -- -- see 'insetBorder' for which of the two each consumer wants.
+  let contents = [ (win, insetBorder (maybe bw0 fst (M.lookup win borders)) r)
+                 | (win, r) <- placements ]
+
+  -- The order the screens were visited in, what the layout placed, and the
+  -- geometry actually transmitted for it.  The screen order is the one the
+  -- render sequence @place_top@s in, so a trace showing it permute while
+  -- nothing moves is what tells a restacking loop from a geometry one -- and,
+  -- now that it is sorted, what shows it staying put.
   io $ traceLine $ "layout screens="
     ++ show [ (W.screen scr, W.tag (W.workspace scr)) | scr <- screens ]
     ++ " placed=" ++ showPlacements placements
+    ++ " content=" ++ showPlacements contents
 
   raised <- io . readIORef =<< asks (riverRestack . riverState)
   let placed = S.fromList (map fst placements)
@@ -1290,7 +1298,7 @@ applyLayout rt = do
 
   io $ modifyIORef' (rtPlan rt) $ \p -> p
     { planSerial     = planSerial p + 1
-    , planPlacements = placements
+    , planPlacements = contents
     , planBorders    = borders
     , planVisible    = placed
     , planRaised     = stillUp
@@ -1307,11 +1315,18 @@ applyLayout rt = do
   bw <- asks (borderWidth . config)
   allKnown <- io . readIORef =<< asks (riverWindows . riverState)
   let placedMap = M.fromList placements
+      -- X11 reported the OUTER corner and the CONTENT size, with the border
+      -- width alongside, and that is what upstream's 'floatLocation' arithmetic
+      -- adds @bw*2@ back onto.  Reporting the layout rectangle as the width --
+      -- as this did -- overstated every window by twice its border.
       attrs w rw = case M.lookup w placedMap of
-        Just r -> WindowAttributes
+        Just r ->
+          let wbw = maybe bw fst (M.lookup w borders)
+              c = insetBorder wbw r
+          in WindowAttributes
           { wa_x = rect_x r, wa_y = rect_y r
-          , wa_width = rect_width r, wa_height = rect_height r
-          , wa_border_width = bw, wa_map_state = waIsViewable
+          , wa_width = rect_width c, wa_height = rect_height c
+          , wa_border_width = wbw, wa_map_state = waIsViewable
           , wa_override_redirect = False }
         Nothing -> let (dw, dh) = rwDimensions rw in WindowAttributes
           { wa_x = 0, wa_y = 0
@@ -1594,6 +1609,40 @@ transmitRender rt conn = do
     forM_ (M.lookup win known) $ \w -> riverNodeV1PlaceTop conn (rwNode w)
   forM_ (planRaised plan) $ \win ->
     forM_ (M.lookup win known) $ \w -> riverNodeV1PlaceTop conn (rwNode w)
+
+-- | Take a window's border out of the rectangle the layout gave it.
+--
+-- __A layout rectangle includes the border.__  That is upstream's convention
+-- and this fork already depends on it elsewhere: 'XMonad.Operations.mkAdjust'
+-- subtracts @2*bw@ before applying size hints and adds it back afterwards, and
+-- 'XMonad.Operations.floatLocation' records a float's rectangle with the border
+-- included.  X11 honoured it in @tileWindow@, by sizing the window @2*bw@
+-- smaller than its rectangle and leaving the origin alone -- an X11 window's
+-- position is its /outer/ corner, so the border filled the difference exactly.
+--
+-- river's @set_position@ places the /content/, and @Window.zig@ draws each
+-- border outside it (the left one at @x = -width@).  So keeping the convention
+-- needs the origin moved in by @bw@ as well as the size reduced by @2*bw@;
+-- without that a window is @2*bw@ larger than its tile in each direction and
+-- its borders lie over its neighbours'.
+--
+-- That was not only cosmetic.  Windows at the edge of an output had their
+-- borders drawn onto the /next/ output, where they answered river's hit tests,
+-- which is what let a stationary pointer near a seam belong to a window on
+-- another screen at all.  See 'applyLayout' for what that then drove.
+--
+-- Never smaller than @1x1@, as upstream's @tileWindow@ also guaranteed: a
+-- window narrower than its own border is a proposal no client can take.
+insetBorder :: Dimension -> Rectangle -> Rectangle
+insetBorder bw r = Rectangle
+  { rect_x = rect_x r + fromIntegral bw
+  , rect_y = rect_y r + fromIntegral bw
+  , rect_width = shrink (rect_width r)
+  , rect_height = shrink (rect_height r)
+  }
+  where
+    shrink d | d <= 2 * bw = 1
+             | otherwise   = d - 2 * bw
 
 -- | A dimension bound river reports as zero or less was not stated.
 sizeBound :: Int32 -> Int32 -> Maybe (Dimension, Dimension)
