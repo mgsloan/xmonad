@@ -964,22 +964,40 @@ screensOf ws = W.current ws : W.visible ws
 rescreen :: [Rectangle] -> WindowSet -> WindowSet
 rescreen rects ws = ws
     { W.current = (W.current ws) { W.screen = 0, W.screenDetail = SD firstRect }
-    , W.visible = zipWith reseat [1 ..] restRects
-    , W.hidden = newHidden
+    , W.visible = newVisible
+    , W.hidden  = newHidden
     }
   where
     (firstRect, restRects) = case rects of
       (r:rs) -> (r, rs)
       []     -> (Rectangle 0 0 0 0, [])
-    -- Workspaces that were on now-absent screens fall back to hidden.
-    oldVisible = W.visible ws
-    reseat i r = case drop (i - 1) oldVisible of
-      (s:_) -> s { W.screen = fromIntegral i, W.screenDetail = SD r }
-      [] -> case newHidden of
-        (h:_) -> W.Screen h (fromIntegral i) (SD r)
-        []    -> W.Screen (W.workspace (W.current ws)) (fromIntegral i) (SD r)
-    surplus = drop (length restRects) oldVisible
-    newHidden = map W.workspace surplus ++ W.hidden ws
+
+    -- Each additional screen takes one workspace, drawn from the previously
+    -- visible screens first and then from hidden.  Every workspace is consumed
+    -- exactly once.
+    --
+    -- The previous implementation indexed into both lists independently, so
+    -- when the screen count GREW -- one output at startup, three once kanshi
+    -- applies a profile -- every new screen was handed @head newHidden@, and
+    -- the same workspace ended up on several screens at once while still
+    -- appearing in hidden.  That violates StackSet's invariant that a
+    -- workspace occurs exactly once, and the visible symptoms were a status
+    -- bar listing the same workspace repeatedly, windows only ever appearing
+    -- on the first screen, and screen-directed commands doing nothing.
+    (newVisible, newHidden) = go (1 :: Int) restRects (W.visible ws) (W.hidden ws)
+
+    go _ []     surplus hid = ([], map W.workspace surplus ++ hid)
+    go i (r:rs) (s:vs)  hid =
+      let (rest, hid') = go (i + 1) rs vs hid
+      in  (s { W.screen = fromIntegral i, W.screenDetail = SD r } : rest, hid')
+    go i (r:rs) []      (h:hs) =
+      let (rest, hid') = go (i + 1) rs [] hs
+      in  (W.Screen h (fromIntegral i) (SD r) : rest, hid')
+    -- Degenerate: more screens than workspaces.  Nothing distinct is left to
+    -- show, so the current workspace is repeated, as before.
+    go i (r:rs) []      [] =
+      let (rest, hid') = go (i + 1) rs [] []
+      in  (W.Screen (W.workspace (W.current ws)) (fromIntegral i) (SD r) : rest, hid')
 
 -- | Run the manage hook for windows river has just told us about, and insert
 -- them into the 'WindowSet'.
