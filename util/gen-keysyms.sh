@@ -19,6 +19,14 @@
 
 set -euo pipefail
 
+# The name list below comes from sort, and the order of the generated tables
+# follows it.  Under a UTF-8 locale that order depends on the machine's
+# collation rules, so regenerating on a different machine rewrites both files
+# without changing a single value -- and tests/check-all.sh, which regenerates
+# and then diffs, fails on a machine whose locale differs from the one the
+# checked-in files were written on.  C collation is byte order.
+export LC_ALL=C
+
 cd "$(dirname "$0")/.."
 
 out=src/XMonad/River/Keysym.hs

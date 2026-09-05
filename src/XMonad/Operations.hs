@@ -608,12 +608,33 @@ floatLocation w = do
             pure $ case M.lookup w known of
                 Nothing -> (W.screen sc, W.RationalRect 0 0 1 1)
                 Just rw ->
-                    let (width, height) = rwDimensions rw
-                        rwidth  = fromIntegral (max 1 width)  % sw
-                        rheight = fromIntegral (max 1 height) % sh
+                    let (width, height) = sizeOf rw
+                        rwidth  = fromIntegral width  % sw
+                        rheight = fromIntegral height % sh
                     in ( W.screen sc
                        , W.RationalRect (0.5 - rwidth / 2) (0.5 - rheight / 2)
                                         rwidth rheight )
+
+-- | The best size available for a window that has never been laid out.
+--
+-- A window river has not yet sent a @dimensions@ event for reports @0 x 0@,
+-- and that is the ordinary case here: the protocol does not display a new
+-- window until the window manager has proposed dimensions for it, so a
+-- @doFloat@ manage hook always runs before any real size exists.  Clamping
+-- that to @1 x 1@, as this used to, proposed a one-pixel window -- which a
+-- GTK dialog with a 353x225 minimum can never take, leaving its recorded
+-- rectangle permanently disagreeing with the window on screen.
+--
+-- The minimum from @dimensions_hint@ is the honest answer when there is one:
+-- it arrives before the first manage sequence, and a window asked for its
+-- minimum takes it exactly.  Failing that, zero, which river documents as
+-- "the window will be allowed to decide its own dimensions" and is a more
+-- truthful statement of not knowing than any invented number.
+sizeOf :: RiverWindow -> (Dimension, Dimension)
+sizeOf rw = case rwDimensions rw of
+    (width, height) | width > 0 && height > 0 ->
+        (fromIntegral width, fromIntegral height)
+    _ -> fromMaybe (0, 0) (sh_min_size (rwSizeHints rw))
 
 -- | A rectangle as a fraction of a screen, which is how the 'WindowSet'
 -- records a float.

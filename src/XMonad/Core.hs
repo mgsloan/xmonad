@@ -781,6 +781,17 @@ compile dirs method =
               , "xmonad.hs"
               , "-i" -- only look in @lib@
               , "-ilib"
+              -- The river backend requires the threaded runtime: the event
+              -- loop waits on two descriptors, sendRestart interrupts a
+              -- blocking read with an async exception, and a prompt runs on a
+              -- thread of its own.  The xmonad executable in this package sets
+              -- -threaded in the cabal file, but a recompiled user config is
+              -- built by these arguments alone, so without this it comes out
+              -- with RTS way "rts_v" and anything that blocks in a forked
+              -- Haskell thread blocks the whole runtime -- there being only
+              -- one capability to go round.
+              , "-threaded"
+              , "-rtsopts"
               , "-fforce-recomp"
               , "-main-is", "main"
               , "-v0"

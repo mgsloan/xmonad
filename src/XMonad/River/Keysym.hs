@@ -15,63 +15,63 @@
 module XMonad.River.Keysym (
   noSymbol, stringToKeysym, keysymToString,
   xK_0, xK_1, xK_2, xK_3, xK_4, xK_5,
-  xK_6, xK_7, xK_8, xK_9, xK_a, xK_A,
-  xK_aacute, xK_Aacute, xK_acircumflex, xK_Acircumflex, xK_acute, xK_adiaeresis,
-  xK_Adiaeresis, xK_ae, xK_AE, xK_agrave, xK_Agrave, xK_Alt_L,
-  xK_Alt_R, xK_ampersand, xK_apostrophe, xK_aring, xK_Aring, xK_asciicircum,
-  xK_asciitilde, xK_asterisk, xK_at, xK_atilde, xK_Atilde, xK_b,
-  xK_B, xK_backslash, xK_BackSpace, xK_bar, xK_Begin, xK_braceleft,
-  xK_braceright, xK_bracketleft, xK_bracketright, xK_Break, xK_brokenbar, xK_c,
-  xK_C, xK_Cancel, xK_Caps_Lock, xK_ccedilla, xK_Ccedilla, xK_cedilla,
-  xK_cent, xK_Clear, xK_Codeinput, xK_colon, xK_comma, xK_Control_L,
-  xK_Control_R, xK_copyright, xK_currency, xK_d, xK_D, xK_degree,
-  xK_Delete, xK_diaeresis, xK_division, xK_dollar, xK_Down, xK_e,
-  xK_E, xK_eacute, xK_Eacute, xK_ecircumflex, xK_Ecircumflex, xK_ediaeresis,
-  xK_Ediaeresis, xK_egrave, xK_Egrave, xK_End, xK_equal, xK_Escape,
-  xK_eth, xK_Eth, xK_ETH, xK_exclam, xK_exclamdown, xK_Execute,
-  xK_f, xK_F, xK_F1, xK_F10, xK_F11, xK_F12,
-  xK_F13, xK_F14, xK_F15, xK_F16, xK_F17, xK_F18,
-  xK_F19, xK_F2, xK_F20, xK_F21, xK_F22, xK_F23,
-  xK_F24, xK_F25, xK_F26, xK_F27, xK_F28, xK_F29,
-  xK_F3, xK_F30, xK_F31, xK_F32, xK_F33, xK_F34,
-  xK_F35, xK_F4, xK_F5, xK_F6, xK_F7, xK_F8,
-  xK_F9, xK_Find, xK_g, xK_G, xK_grave, xK_greater,
-  xK_guillemotleft, xK_guillemotright, xK_h, xK_H, xK_Help, xK_Home,
-  xK_Hyper_L, xK_Hyper_R, xK_hyphen, xK_i, xK_I, xK_iacute,
-  xK_Iacute, xK_icircumflex, xK_Icircumflex, xK_idiaeresis, xK_Idiaeresis, xK_igrave,
-  xK_Igrave, xK_Insert, xK_j, xK_J, xK_k, xK_K,
+  xK_6, xK_7, xK_8, xK_9, xK_A, xK_AE,
+  xK_Aacute, xK_Acircumflex, xK_Adiaeresis, xK_Agrave, xK_Alt_L, xK_Alt_R,
+  xK_Aring, xK_Atilde, xK_B, xK_BackSpace, xK_Begin, xK_Break,
+  xK_C, xK_Cancel, xK_Caps_Lock, xK_Ccedilla, xK_Clear, xK_Codeinput,
+  xK_Control_L, xK_Control_R, xK_D, xK_Delete, xK_Down, xK_E,
+  xK_ETH, xK_Eacute, xK_Ecircumflex, xK_Ediaeresis, xK_Egrave, xK_End,
+  xK_Escape, xK_Eth, xK_Execute, xK_F, xK_F1, xK_F10,
+  xK_F11, xK_F12, xK_F13, xK_F14, xK_F15, xK_F16,
+  xK_F17, xK_F18, xK_F19, xK_F2, xK_F20, xK_F21,
+  xK_F22, xK_F23, xK_F24, xK_F25, xK_F26, xK_F27,
+  xK_F28, xK_F29, xK_F3, xK_F30, xK_F31, xK_F32,
+  xK_F33, xK_F34, xK_F35, xK_F4, xK_F5, xK_F6,
+  xK_F7, xK_F8, xK_F9, xK_Find, xK_G, xK_H,
+  xK_Help, xK_Home, xK_Hyper_L, xK_Hyper_R, xK_I, xK_Iacute,
+  xK_Icircumflex, xK_Idiaeresis, xK_Igrave, xK_Insert, xK_J, xK_K,
   xK_KP_0, xK_KP_1, xK_KP_2, xK_KP_3, xK_KP_4, xK_KP_5,
   xK_KP_6, xK_KP_7, xK_KP_8, xK_KP_9, xK_KP_Add, xK_KP_Begin,
   xK_KP_Decimal, xK_KP_Delete, xK_KP_Divide, xK_KP_Down, xK_KP_End, xK_KP_Enter,
   xK_KP_Equal, xK_KP_F1, xK_KP_F2, xK_KP_F3, xK_KP_F4, xK_KP_Home,
   xK_KP_Insert, xK_KP_Left, xK_KP_Multiply, xK_KP_Next, xK_KP_Page_Down, xK_KP_Page_Up,
   xK_KP_Prior, xK_KP_Right, xK_KP_Separator, xK_KP_Space, xK_KP_Subtract, xK_KP_Tab,
-  xK_KP_Up, xK_l, xK_L, xK_L1, xK_L10, xK_L2,
-  xK_L3, xK_L4, xK_L5, xK_L6, xK_L7, xK_L8,
-  xK_L9, xK_Left, xK_less, xK_Linefeed, xK_m, xK_M,
-  xK_macron, xK_masculine, xK_Menu, xK_Meta_L, xK_Meta_R, xK_minus,
-  xK_Mode_switch, xK_mu, xK_Multi_key, xK_MultipleCandidate, xK_multiply, xK_n,
-  xK_N, xK_Next, xK_nobreakspace, xK_notsign, xK_ntilde, xK_Ntilde,
-  xK_numbersign, xK_Num_Lock, xK_o, xK_O, xK_oacute, xK_Oacute,
-  xK_ocircumflex, xK_Ocircumflex, xK_odiaeresis, xK_Odiaeresis, xK_ograve, xK_Ograve,
-  xK_onehalf, xK_onequarter, xK_onesuperior, xK_Ooblique, xK_ordfeminine, xK_oslash,
-  xK_otilde, xK_Otilde, xK_p, xK_P, xK_Page_Down, xK_Page_Up,
-  xK_paragraph, xK_parenleft, xK_parenright, xK_Pause, xK_percent, xK_period,
-  xK_periodcentered, xK_plus, xK_plusminus, xK_PreviousCandidate, xK_Print, xK_Prior,
-  xK_q, xK_Q, xK_question, xK_questiondown, xK_quotedbl, xK_quoteleft,
-  xK_quoteright, xK_r, xK_R, xK_R1, xK_R10, xK_R11,
-  xK_R12, xK_R13, xK_R14, xK_R15, xK_R2, xK_R3,
-  xK_R4, xK_R5, xK_R6, xK_R7, xK_R8, xK_R9,
-  xK_Redo, xK_registered, xK_Return, xK_Right, xK_s, xK_S,
-  xK_script_switch, xK_Scroll_Lock, xK_section, xK_Select, xK_semicolon, xK_Shift_L,
-  xK_Shift_Lock, xK_Shift_R, xK_SingleCandidate, xK_slash, xK_space, xK_ssharp,
-  xK_sterling, xK_Super_L, xK_Super_R, xK_Sys_Req, xK_t, xK_T,
-  xK_Tab, xK_thorn, xK_Thorn, xK_THORN, xK_threequarters, xK_threesuperior,
-  xK_twosuperior, xK_u, xK_U, xK_uacute, xK_Uacute, xK_ucircumflex,
-  xK_Ucircumflex, xK_udiaeresis, xK_Udiaeresis, xK_ugrave, xK_Ugrave, xK_underscore,
-  xK_Undo, xK_Up, xK_v, xK_V, xK_VoidSymbol, xK_w,
-  xK_W, xK_x, xK_X, xK_y, xK_Y, xK_yacute,
-  xK_Yacute, xK_ydiaeresis, xK_yen, xK_z, xK_Z
+  xK_KP_Up, xK_L, xK_L1, xK_L10, xK_L2, xK_L3,
+  xK_L4, xK_L5, xK_L6, xK_L7, xK_L8, xK_L9,
+  xK_Left, xK_Linefeed, xK_M, xK_Menu, xK_Meta_L, xK_Meta_R,
+  xK_Mode_switch, xK_Multi_key, xK_MultipleCandidate, xK_N, xK_Next, xK_Ntilde,
+  xK_Num_Lock, xK_O, xK_Oacute, xK_Ocircumflex, xK_Odiaeresis, xK_Ograve,
+  xK_Ooblique, xK_Otilde, xK_P, xK_Page_Down, xK_Page_Up, xK_Pause,
+  xK_PreviousCandidate, xK_Print, xK_Prior, xK_Q, xK_R, xK_R1,
+  xK_R10, xK_R11, xK_R12, xK_R13, xK_R14, xK_R15,
+  xK_R2, xK_R3, xK_R4, xK_R5, xK_R6, xK_R7,
+  xK_R8, xK_R9, xK_Redo, xK_Return, xK_Right, xK_S,
+  xK_Scroll_Lock, xK_Select, xK_Shift_L, xK_Shift_Lock, xK_Shift_R, xK_SingleCandidate,
+  xK_Super_L, xK_Super_R, xK_Sys_Req, xK_T, xK_THORN, xK_Tab,
+  xK_Thorn, xK_U, xK_Uacute, xK_Ucircumflex, xK_Udiaeresis, xK_Ugrave,
+  xK_Undo, xK_Up, xK_V, xK_VoidSymbol, xK_W, xK_X,
+  xK_Y, xK_Yacute, xK_Z, xK_a, xK_aacute, xK_acircumflex,
+  xK_acute, xK_adiaeresis, xK_ae, xK_agrave, xK_ampersand, xK_apostrophe,
+  xK_aring, xK_asciicircum, xK_asciitilde, xK_asterisk, xK_at, xK_atilde,
+  xK_b, xK_backslash, xK_bar, xK_braceleft, xK_braceright, xK_bracketleft,
+  xK_bracketright, xK_brokenbar, xK_c, xK_ccedilla, xK_cedilla, xK_cent,
+  xK_colon, xK_comma, xK_copyright, xK_currency, xK_d, xK_degree,
+  xK_diaeresis, xK_division, xK_dollar, xK_e, xK_eacute, xK_ecircumflex,
+  xK_ediaeresis, xK_egrave, xK_equal, xK_eth, xK_exclam, xK_exclamdown,
+  xK_f, xK_g, xK_grave, xK_greater, xK_guillemotleft, xK_guillemotright,
+  xK_h, xK_hyphen, xK_i, xK_iacute, xK_icircumflex, xK_idiaeresis,
+  xK_igrave, xK_j, xK_k, xK_l, xK_less, xK_m,
+  xK_macron, xK_masculine, xK_minus, xK_mu, xK_multiply, xK_n,
+  xK_nobreakspace, xK_notsign, xK_ntilde, xK_numbersign, xK_o, xK_oacute,
+  xK_ocircumflex, xK_odiaeresis, xK_ograve, xK_onehalf, xK_onequarter, xK_onesuperior,
+  xK_ordfeminine, xK_oslash, xK_otilde, xK_p, xK_paragraph, xK_parenleft,
+  xK_parenright, xK_percent, xK_period, xK_periodcentered, xK_plus, xK_plusminus,
+  xK_q, xK_question, xK_questiondown, xK_quotedbl, xK_quoteleft, xK_quoteright,
+  xK_r, xK_registered, xK_s, xK_script_switch, xK_section, xK_semicolon,
+  xK_slash, xK_space, xK_ssharp, xK_sterling, xK_t, xK_thorn,
+  xK_threequarters, xK_threesuperior, xK_twosuperior, xK_u, xK_uacute, xK_ucircumflex,
+  xK_udiaeresis, xK_ugrave, xK_underscore, xK_v, xK_w, xK_x,
+  xK_y, xK_yacute, xK_ydiaeresis, xK_yen, xK_z
   ) where
 
 import Data.Char (chr, ord)
@@ -115,49 +115,49 @@ keysymToString ks = case M.lookup ks reverseKeysymTable of
 
 
 xK_0, xK_1, xK_2, xK_3, xK_4, xK_5, xK_6, xK_7,
-  xK_8, xK_9, xK_a, xK_A, xK_aacute, xK_Aacute, xK_acircumflex, xK_Acircumflex,
-  xK_acute, xK_adiaeresis, xK_Adiaeresis, xK_ae, xK_AE, xK_agrave, xK_Agrave, xK_Alt_L,
-  xK_Alt_R, xK_ampersand, xK_apostrophe, xK_aring, xK_Aring, xK_asciicircum, xK_asciitilde, xK_asterisk,
-  xK_at, xK_atilde, xK_Atilde, xK_b, xK_B, xK_backslash, xK_BackSpace, xK_bar,
-  xK_Begin, xK_braceleft, xK_braceright, xK_bracketleft, xK_bracketright, xK_Break, xK_brokenbar, xK_c,
-  xK_C, xK_Cancel, xK_Caps_Lock, xK_ccedilla, xK_Ccedilla, xK_cedilla, xK_cent, xK_Clear,
-  xK_Codeinput, xK_colon, xK_comma, xK_Control_L, xK_Control_R, xK_copyright, xK_currency, xK_d,
-  xK_D, xK_degree, xK_Delete, xK_diaeresis, xK_division, xK_dollar, xK_Down, xK_e,
-  xK_E, xK_eacute, xK_Eacute, xK_ecircumflex, xK_Ecircumflex, xK_ediaeresis, xK_Ediaeresis, xK_egrave,
-  xK_Egrave, xK_End, xK_equal, xK_Escape, xK_eth, xK_Eth, xK_ETH, xK_exclam,
-  xK_exclamdown, xK_Execute, xK_f, xK_F, xK_F1, xK_F10, xK_F11, xK_F12,
-  xK_F13, xK_F14, xK_F15, xK_F16, xK_F17, xK_F18, xK_F19, xK_F2,
-  xK_F20, xK_F21, xK_F22, xK_F23, xK_F24, xK_F25, xK_F26, xK_F27,
-  xK_F28, xK_F29, xK_F3, xK_F30, xK_F31, xK_F32, xK_F33, xK_F34,
-  xK_F35, xK_F4, xK_F5, xK_F6, xK_F7, xK_F8, xK_F9, xK_Find,
-  xK_g, xK_G, xK_grave, xK_greater, xK_guillemotleft, xK_guillemotright, xK_h, xK_H,
-  xK_Help, xK_Home, xK_Hyper_L, xK_Hyper_R, xK_hyphen, xK_i, xK_I, xK_iacute,
-  xK_Iacute, xK_icircumflex, xK_Icircumflex, xK_idiaeresis, xK_Idiaeresis, xK_igrave, xK_Igrave, xK_Insert,
-  xK_j, xK_J, xK_k, xK_K, xK_KP_0, xK_KP_1, xK_KP_2, xK_KP_3,
-  xK_KP_4, xK_KP_5, xK_KP_6, xK_KP_7, xK_KP_8, xK_KP_9, xK_KP_Add, xK_KP_Begin,
-  xK_KP_Decimal, xK_KP_Delete, xK_KP_Divide, xK_KP_Down, xK_KP_End, xK_KP_Enter, xK_KP_Equal, xK_KP_F1,
-  xK_KP_F2, xK_KP_F3, xK_KP_F4, xK_KP_Home, xK_KP_Insert, xK_KP_Left, xK_KP_Multiply, xK_KP_Next,
-  xK_KP_Page_Down, xK_KP_Page_Up, xK_KP_Prior, xK_KP_Right, xK_KP_Separator, xK_KP_Space, xK_KP_Subtract, xK_KP_Tab,
-  xK_KP_Up, xK_l, xK_L, xK_L1, xK_L10, xK_L2, xK_L3, xK_L4,
-  xK_L5, xK_L6, xK_L7, xK_L8, xK_L9, xK_Left, xK_less, xK_Linefeed,
-  xK_m, xK_M, xK_macron, xK_masculine, xK_Menu, xK_Meta_L, xK_Meta_R, xK_minus,
-  xK_Mode_switch, xK_mu, xK_Multi_key, xK_MultipleCandidate, xK_multiply, xK_n, xK_N, xK_Next,
-  xK_nobreakspace, xK_notsign, xK_ntilde, xK_Ntilde, xK_numbersign, xK_Num_Lock, xK_o, xK_O,
-  xK_oacute, xK_Oacute, xK_ocircumflex, xK_Ocircumflex, xK_odiaeresis, xK_Odiaeresis, xK_ograve, xK_Ograve,
-  xK_onehalf, xK_onequarter, xK_onesuperior, xK_Ooblique, xK_ordfeminine, xK_oslash, xK_otilde, xK_Otilde,
-  xK_p, xK_P, xK_Page_Down, xK_Page_Up, xK_paragraph, xK_parenleft, xK_parenright, xK_Pause,
-  xK_percent, xK_period, xK_periodcentered, xK_plus, xK_plusminus, xK_PreviousCandidate, xK_Print, xK_Prior,
-  xK_q, xK_Q, xK_question, xK_questiondown, xK_quotedbl, xK_quoteleft, xK_quoteright, xK_r,
-  xK_R, xK_R1, xK_R10, xK_R11, xK_R12, xK_R13, xK_R14, xK_R15,
-  xK_R2, xK_R3, xK_R4, xK_R5, xK_R6, xK_R7, xK_R8, xK_R9,
-  xK_Redo, xK_registered, xK_Return, xK_Right, xK_s, xK_S, xK_script_switch, xK_Scroll_Lock,
-  xK_section, xK_Select, xK_semicolon, xK_Shift_L, xK_Shift_Lock, xK_Shift_R, xK_SingleCandidate, xK_slash,
-  xK_space, xK_ssharp, xK_sterling, xK_Super_L, xK_Super_R, xK_Sys_Req, xK_t, xK_T,
-  xK_Tab, xK_thorn, xK_Thorn, xK_THORN, xK_threequarters, xK_threesuperior, xK_twosuperior, xK_u,
-  xK_U, xK_uacute, xK_Uacute, xK_ucircumflex, xK_Ucircumflex, xK_udiaeresis, xK_Udiaeresis, xK_ugrave,
-  xK_Ugrave, xK_underscore, xK_Undo, xK_Up, xK_v, xK_V, xK_VoidSymbol, xK_w,
-  xK_W, xK_x, xK_X, xK_y, xK_Y, xK_yacute, xK_Yacute, xK_ydiaeresis,
-  xK_yen, xK_z, xK_Z :: KeySym
+  xK_8, xK_9, xK_A, xK_AE, xK_Aacute, xK_Acircumflex, xK_Adiaeresis, xK_Agrave,
+  xK_Alt_L, xK_Alt_R, xK_Aring, xK_Atilde, xK_B, xK_BackSpace, xK_Begin, xK_Break,
+  xK_C, xK_Cancel, xK_Caps_Lock, xK_Ccedilla, xK_Clear, xK_Codeinput, xK_Control_L, xK_Control_R,
+  xK_D, xK_Delete, xK_Down, xK_E, xK_ETH, xK_Eacute, xK_Ecircumflex, xK_Ediaeresis,
+  xK_Egrave, xK_End, xK_Escape, xK_Eth, xK_Execute, xK_F, xK_F1, xK_F10,
+  xK_F11, xK_F12, xK_F13, xK_F14, xK_F15, xK_F16, xK_F17, xK_F18,
+  xK_F19, xK_F2, xK_F20, xK_F21, xK_F22, xK_F23, xK_F24, xK_F25,
+  xK_F26, xK_F27, xK_F28, xK_F29, xK_F3, xK_F30, xK_F31, xK_F32,
+  xK_F33, xK_F34, xK_F35, xK_F4, xK_F5, xK_F6, xK_F7, xK_F8,
+  xK_F9, xK_Find, xK_G, xK_H, xK_Help, xK_Home, xK_Hyper_L, xK_Hyper_R,
+  xK_I, xK_Iacute, xK_Icircumflex, xK_Idiaeresis, xK_Igrave, xK_Insert, xK_J, xK_K,
+  xK_KP_0, xK_KP_1, xK_KP_2, xK_KP_3, xK_KP_4, xK_KP_5, xK_KP_6, xK_KP_7,
+  xK_KP_8, xK_KP_9, xK_KP_Add, xK_KP_Begin, xK_KP_Decimal, xK_KP_Delete, xK_KP_Divide, xK_KP_Down,
+  xK_KP_End, xK_KP_Enter, xK_KP_Equal, xK_KP_F1, xK_KP_F2, xK_KP_F3, xK_KP_F4, xK_KP_Home,
+  xK_KP_Insert, xK_KP_Left, xK_KP_Multiply, xK_KP_Next, xK_KP_Page_Down, xK_KP_Page_Up, xK_KP_Prior, xK_KP_Right,
+  xK_KP_Separator, xK_KP_Space, xK_KP_Subtract, xK_KP_Tab, xK_KP_Up, xK_L, xK_L1, xK_L10,
+  xK_L2, xK_L3, xK_L4, xK_L5, xK_L6, xK_L7, xK_L8, xK_L9,
+  xK_Left, xK_Linefeed, xK_M, xK_Menu, xK_Meta_L, xK_Meta_R, xK_Mode_switch, xK_Multi_key,
+  xK_MultipleCandidate, xK_N, xK_Next, xK_Ntilde, xK_Num_Lock, xK_O, xK_Oacute, xK_Ocircumflex,
+  xK_Odiaeresis, xK_Ograve, xK_Ooblique, xK_Otilde, xK_P, xK_Page_Down, xK_Page_Up, xK_Pause,
+  xK_PreviousCandidate, xK_Print, xK_Prior, xK_Q, xK_R, xK_R1, xK_R10, xK_R11,
+  xK_R12, xK_R13, xK_R14, xK_R15, xK_R2, xK_R3, xK_R4, xK_R5,
+  xK_R6, xK_R7, xK_R8, xK_R9, xK_Redo, xK_Return, xK_Right, xK_S,
+  xK_Scroll_Lock, xK_Select, xK_Shift_L, xK_Shift_Lock, xK_Shift_R, xK_SingleCandidate, xK_Super_L, xK_Super_R,
+  xK_Sys_Req, xK_T, xK_THORN, xK_Tab, xK_Thorn, xK_U, xK_Uacute, xK_Ucircumflex,
+  xK_Udiaeresis, xK_Ugrave, xK_Undo, xK_Up, xK_V, xK_VoidSymbol, xK_W, xK_X,
+  xK_Y, xK_Yacute, xK_Z, xK_a, xK_aacute, xK_acircumflex, xK_acute, xK_adiaeresis,
+  xK_ae, xK_agrave, xK_ampersand, xK_apostrophe, xK_aring, xK_asciicircum, xK_asciitilde, xK_asterisk,
+  xK_at, xK_atilde, xK_b, xK_backslash, xK_bar, xK_braceleft, xK_braceright, xK_bracketleft,
+  xK_bracketright, xK_brokenbar, xK_c, xK_ccedilla, xK_cedilla, xK_cent, xK_colon, xK_comma,
+  xK_copyright, xK_currency, xK_d, xK_degree, xK_diaeresis, xK_division, xK_dollar, xK_e,
+  xK_eacute, xK_ecircumflex, xK_ediaeresis, xK_egrave, xK_equal, xK_eth, xK_exclam, xK_exclamdown,
+  xK_f, xK_g, xK_grave, xK_greater, xK_guillemotleft, xK_guillemotright, xK_h, xK_hyphen,
+  xK_i, xK_iacute, xK_icircumflex, xK_idiaeresis, xK_igrave, xK_j, xK_k, xK_l,
+  xK_less, xK_m, xK_macron, xK_masculine, xK_minus, xK_mu, xK_multiply, xK_n,
+  xK_nobreakspace, xK_notsign, xK_ntilde, xK_numbersign, xK_o, xK_oacute, xK_ocircumflex, xK_odiaeresis,
+  xK_ograve, xK_onehalf, xK_onequarter, xK_onesuperior, xK_ordfeminine, xK_oslash, xK_otilde, xK_p,
+  xK_paragraph, xK_parenleft, xK_parenright, xK_percent, xK_period, xK_periodcentered, xK_plus, xK_plusminus,
+  xK_q, xK_question, xK_questiondown, xK_quotedbl, xK_quoteleft, xK_quoteright, xK_r, xK_registered,
+  xK_s, xK_script_switch, xK_section, xK_semicolon, xK_slash, xK_space, xK_ssharp, xK_sterling,
+  xK_t, xK_thorn, xK_threequarters, xK_threesuperior, xK_twosuperior, xK_u, xK_uacute, xK_ucircumflex,
+  xK_udiaeresis, xK_ugrave, xK_underscore, xK_v, xK_w, xK_x, xK_y, xK_yacute,
+  xK_ydiaeresis, xK_yen, xK_z :: KeySym
 
 xK_0 = 48
 xK_1 = 49
@@ -169,87 +169,41 @@ xK_6 = 54
 xK_7 = 55
 xK_8 = 56
 xK_9 = 57
-xK_a = 97
 xK_A = 65
-xK_aacute = 225
-xK_Aacute = 193
-xK_acircumflex = 226
-xK_Acircumflex = 194
-xK_acute = 180
-xK_adiaeresis = 228
-xK_Adiaeresis = 196
-xK_ae = 230
 xK_AE = 198
-xK_agrave = 224
+xK_Aacute = 193
+xK_Acircumflex = 194
+xK_Adiaeresis = 196
 xK_Agrave = 192
 xK_Alt_L = 65513
 xK_Alt_R = 65514
-xK_ampersand = 38
-xK_apostrophe = 39
-xK_aring = 229
 xK_Aring = 197
-xK_asciicircum = 94
-xK_asciitilde = 126
-xK_asterisk = 42
-xK_at = 64
-xK_atilde = 227
 xK_Atilde = 195
-xK_b = 98
 xK_B = 66
-xK_backslash = 92
 xK_BackSpace = 65288
-xK_bar = 124
 xK_Begin = 65368
-xK_braceleft = 123
-xK_braceright = 125
-xK_bracketleft = 91
-xK_bracketright = 93
 xK_Break = 65387
-xK_brokenbar = 166
-xK_c = 99
 xK_C = 67
 xK_Cancel = 65385
 xK_Caps_Lock = 65509
-xK_ccedilla = 231
 xK_Ccedilla = 199
-xK_cedilla = 184
-xK_cent = 162
 xK_Clear = 65291
 xK_Codeinput = 65335
-xK_colon = 58
-xK_comma = 44
 xK_Control_L = 65507
 xK_Control_R = 65508
-xK_copyright = 169
-xK_currency = 164
-xK_d = 100
 xK_D = 68
-xK_degree = 176
 xK_Delete = 65535
-xK_diaeresis = 168
-xK_division = 247
-xK_dollar = 36
 xK_Down = 65364
-xK_e = 101
 xK_E = 69
-xK_eacute = 233
+xK_ETH = 208
 xK_Eacute = 201
-xK_ecircumflex = 234
 xK_Ecircumflex = 202
-xK_ediaeresis = 235
 xK_Ediaeresis = 203
-xK_egrave = 232
 xK_Egrave = 200
 xK_End = 65367
-xK_equal = 61
 xK_Escape = 65307
-xK_eth = 240
 xK_Eth = 208
-xK_ETH = 208
-xK_exclam = 33
-xK_exclamdown = 161
 xK_Execute = 65378
-xK_f = 102
 xK_F = 70
 xK_F1 = 65470
 xK_F10 = 65479
@@ -287,33 +241,19 @@ xK_F7 = 65476
 xK_F8 = 65477
 xK_F9 = 65478
 xK_Find = 65384
-xK_g = 103
 xK_G = 71
-xK_grave = 96
-xK_greater = 62
-xK_guillemotleft = 171
-xK_guillemotright = 187
-xK_h = 104
 xK_H = 72
 xK_Help = 65386
 xK_Home = 65360
 xK_Hyper_L = 65517
 xK_Hyper_R = 65518
-xK_hyphen = 173
-xK_i = 105
 xK_I = 73
-xK_iacute = 237
 xK_Iacute = 205
-xK_icircumflex = 238
 xK_Icircumflex = 206
-xK_idiaeresis = 239
 xK_Idiaeresis = 207
-xK_igrave = 236
 xK_Igrave = 204
 xK_Insert = 65379
-xK_j = 106
 xK_J = 74
-xK_k = 107
 xK_K = 75
 xK_KP_0 = 65456
 xK_KP_1 = 65457
@@ -352,7 +292,6 @@ xK_KP_Space = 65408
 xK_KP_Subtract = 65453
 xK_KP_Tab = 65417
 xK_KP_Up = 65431
-xK_l = 108
 xK_L = 76
 xK_L1 = 65480
 xK_L10 = 65489
@@ -365,72 +304,33 @@ xK_L7 = 65486
 xK_L8 = 65487
 xK_L9 = 65488
 xK_Left = 65361
-xK_less = 60
 xK_Linefeed = 65290
-xK_m = 109
 xK_M = 77
-xK_macron = 175
-xK_masculine = 186
 xK_Menu = 65383
 xK_Meta_L = 65511
 xK_Meta_R = 65512
-xK_minus = 45
 xK_Mode_switch = 65406
-xK_mu = 181
 xK_Multi_key = 65312
 xK_MultipleCandidate = 65341
-xK_multiply = 215
-xK_n = 110
 xK_N = 78
 xK_Next = 65366
-xK_nobreakspace = 160
-xK_notsign = 172
-xK_ntilde = 241
 xK_Ntilde = 209
-xK_numbersign = 35
 xK_Num_Lock = 65407
-xK_o = 111
 xK_O = 79
-xK_oacute = 243
 xK_Oacute = 211
-xK_ocircumflex = 244
 xK_Ocircumflex = 212
-xK_odiaeresis = 246
 xK_Odiaeresis = 214
-xK_ograve = 242
 xK_Ograve = 210
-xK_onehalf = 189
-xK_onequarter = 188
-xK_onesuperior = 185
 xK_Ooblique = 216
-xK_ordfeminine = 170
-xK_oslash = 248
-xK_otilde = 245
 xK_Otilde = 213
-xK_p = 112
 xK_P = 80
 xK_Page_Down = 65366
 xK_Page_Up = 65365
-xK_paragraph = 182
-xK_parenleft = 40
-xK_parenright = 41
 xK_Pause = 65299
-xK_percent = 37
-xK_period = 46
-xK_periodcentered = 183
-xK_plus = 43
-xK_plusminus = 177
 xK_PreviousCandidate = 65342
 xK_Print = 65377
 xK_Prior = 65365
-xK_q = 113
 xK_Q = 81
-xK_question = 63
-xK_questiondown = 191
-xK_quotedbl = 34
-xK_quoteleft = 96
-xK_quoteright = 39
-xK_r = 114
 xK_R = 82
 xK_R1 = 65490
 xK_R10 = 65499
@@ -448,61 +348,161 @@ xK_R7 = 65496
 xK_R8 = 65497
 xK_R9 = 65498
 xK_Redo = 65382
-xK_registered = 174
 xK_Return = 65293
 xK_Right = 65363
-xK_s = 115
 xK_S = 83
-xK_script_switch = 65406
 xK_Scroll_Lock = 65300
-xK_section = 167
 xK_Select = 65376
-xK_semicolon = 59
 xK_Shift_L = 65505
 xK_Shift_Lock = 65510
 xK_Shift_R = 65506
 xK_SingleCandidate = 65340
+xK_Super_L = 65515
+xK_Super_R = 65516
+xK_Sys_Req = 65301
+xK_T = 84
+xK_THORN = 222
+xK_Tab = 65289
+xK_Thorn = 222
+xK_U = 85
+xK_Uacute = 218
+xK_Ucircumflex = 219
+xK_Udiaeresis = 220
+xK_Ugrave = 217
+xK_Undo = 65381
+xK_Up = 65362
+xK_V = 86
+xK_VoidSymbol = 16777215
+xK_W = 87
+xK_X = 88
+xK_Y = 89
+xK_Yacute = 221
+xK_Z = 90
+xK_a = 97
+xK_aacute = 225
+xK_acircumflex = 226
+xK_acute = 180
+xK_adiaeresis = 228
+xK_ae = 230
+xK_agrave = 224
+xK_ampersand = 38
+xK_apostrophe = 39
+xK_aring = 229
+xK_asciicircum = 94
+xK_asciitilde = 126
+xK_asterisk = 42
+xK_at = 64
+xK_atilde = 227
+xK_b = 98
+xK_backslash = 92
+xK_bar = 124
+xK_braceleft = 123
+xK_braceright = 125
+xK_bracketleft = 91
+xK_bracketright = 93
+xK_brokenbar = 166
+xK_c = 99
+xK_ccedilla = 231
+xK_cedilla = 184
+xK_cent = 162
+xK_colon = 58
+xK_comma = 44
+xK_copyright = 169
+xK_currency = 164
+xK_d = 100
+xK_degree = 176
+xK_diaeresis = 168
+xK_division = 247
+xK_dollar = 36
+xK_e = 101
+xK_eacute = 233
+xK_ecircumflex = 234
+xK_ediaeresis = 235
+xK_egrave = 232
+xK_equal = 61
+xK_eth = 240
+xK_exclam = 33
+xK_exclamdown = 161
+xK_f = 102
+xK_g = 103
+xK_grave = 96
+xK_greater = 62
+xK_guillemotleft = 171
+xK_guillemotright = 187
+xK_h = 104
+xK_hyphen = 173
+xK_i = 105
+xK_iacute = 237
+xK_icircumflex = 238
+xK_idiaeresis = 239
+xK_igrave = 236
+xK_j = 106
+xK_k = 107
+xK_l = 108
+xK_less = 60
+xK_m = 109
+xK_macron = 175
+xK_masculine = 186
+xK_minus = 45
+xK_mu = 181
+xK_multiply = 215
+xK_n = 110
+xK_nobreakspace = 160
+xK_notsign = 172
+xK_ntilde = 241
+xK_numbersign = 35
+xK_o = 111
+xK_oacute = 243
+xK_ocircumflex = 244
+xK_odiaeresis = 246
+xK_ograve = 242
+xK_onehalf = 189
+xK_onequarter = 188
+xK_onesuperior = 185
+xK_ordfeminine = 170
+xK_oslash = 248
+xK_otilde = 245
+xK_p = 112
+xK_paragraph = 182
+xK_parenleft = 40
+xK_parenright = 41
+xK_percent = 37
+xK_period = 46
+xK_periodcentered = 183
+xK_plus = 43
+xK_plusminus = 177
+xK_q = 113
+xK_question = 63
+xK_questiondown = 191
+xK_quotedbl = 34
+xK_quoteleft = 96
+xK_quoteright = 39
+xK_r = 114
+xK_registered = 174
+xK_s = 115
+xK_script_switch = 65406
+xK_section = 167
+xK_semicolon = 59
 xK_slash = 47
 xK_space = 32
 xK_ssharp = 223
 xK_sterling = 163
-xK_Super_L = 65515
-xK_Super_R = 65516
-xK_Sys_Req = 65301
 xK_t = 116
-xK_T = 84
-xK_Tab = 65289
 xK_thorn = 254
-xK_Thorn = 222
-xK_THORN = 222
 xK_threequarters = 190
 xK_threesuperior = 179
 xK_twosuperior = 178
 xK_u = 117
-xK_U = 85
 xK_uacute = 250
-xK_Uacute = 218
 xK_ucircumflex = 251
-xK_Ucircumflex = 219
 xK_udiaeresis = 252
-xK_Udiaeresis = 220
 xK_ugrave = 249
-xK_Ugrave = 217
 xK_underscore = 95
-xK_Undo = 65381
-xK_Up = 65362
 xK_v = 118
-xK_V = 86
-xK_VoidSymbol = 16777215
 xK_w = 119
-xK_W = 87
 xK_x = 120
-xK_X = 88
 xK_y = 121
-xK_Y = 89
 xK_yacute = 253
-xK_Yacute = 221
 xK_ydiaeresis = 255
 xK_yen = 165
 xK_z = 122
-xK_Z = 90

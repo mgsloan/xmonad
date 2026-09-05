@@ -74,6 +74,7 @@ import XMonad.River.Wire (ObjectId, isNullObject)
 import XMonad.River.Types
 import XMonad.River.Plan
 import XMonad.River.State (InputCapture(..), RiverState(..))
+import XMonad.River.Trace (initTrace, showPlacements, traceLine)
 import qualified XMonad.StackSet as W
 
 --------------------------------------------------------------------------------
@@ -161,6 +162,7 @@ data Runtime = Runtime
 -- | Connect to river and run the window manager. Does not return.
 riverMain :: XConfig Layout -> Directories -> IO ()
 riverMain userConfig dirs = do
+  initTrace (cfgDir dirs)
   conn <- connect
   (registry, globals) <- getRegistry conn
   mManager <- bindGlobal conn registry globals
@@ -595,6 +597,7 @@ addWindow rt conn win = do
     , rwAppId = Nothing, rwTitle = Nothing, rwPid = Nothing
     , rwIdentifier = Nothing, rwParent = Nothing
     , rwDimensions = (0, 0)
+    , rwProposed = Nothing
     , rwSizeHints = noSizeHints
     , rwNew = True, rwClosed = False, rwFullscreen = False, rwHidden = False
     }
@@ -718,6 +721,7 @@ addSeat rt conn seat = do
     -- notifyNormal@ to ignore the crossings a grab synthesises; river sends
     -- this only for genuine pointer movement, so there is nothing to filter.
     RiverSeatV1PointerEnter win -> do
+      traceLine ("enter win=" ++ show win)
       writeIORef (rtHovered rt) (Just win)
       when (rtFollowsMouse rt) $ queueAction rt $ do
         -- Both conditions are about the delay.  The action runs at the start
@@ -730,7 +734,9 @@ addSeat rt conn seat = do
         stillThere <- io ((== Just win) <$> readIORef (rtHovered rt))
         drag <- gets dragging
         when (stillThere && isNothing drag) (focus win)
-    RiverSeatV1PointerLeave -> writeIORef (rtHovered rt) Nothing
+    RiverSeatV1PointerLeave -> do
+      traceLine "leave"
+      writeIORef (rtHovered rt) Nothing
     RiverSeatV1PointerPosition x y ->
       adjust ref seat $ \s -> s { rsPointer = (x, y) }
     -- A surface this window manager drew was pressed.  X11 delivered that as a
@@ -948,12 +954,24 @@ syncScreens = do
                 _ -> Rectangle x y (fromIntegral width) (fromIntegral height)
         ]
   unless (null rects) $ do
-    before <- gets (map (screenRect . W.screenDetail) . screensOf . windowset)
-    modify $ \st -> st { windowset = rescreen rects (windowset st) }
+    -- In SCREEN-ID order, to line up with @rects@, which is sorted by output
+    -- position.  'screensOf' yields current-first, which is a different order
+    -- as soon as the focused screen is not screen 0 -- comparing that list
+    -- directly reported a change on nearly every sequence.
+    before <- gets (map (screenRect . W.screenDetail) . sortOn W.screen . screensOf . windowset)
     -- Only when it actually changed.  A manage sequence runs for all sorts of
-    -- reasons and most of them leave the outputs alone; a config restarting
-    -- its status bars on every one of them would be unusable.
-    when (before /= rects) $ void (broadcastEvent ScreenLayoutChanged)
+    -- reasons and most of them leave the outputs alone.
+    --
+    -- Guarding the rescreen itself, not merely the broadcast, is the point.
+    -- 'rescreen' reassigns workspaces to screens and forces the focused one
+    -- onto screen 0 -- which is correct when the outputs have genuinely
+    -- changed and ruinous when they have not.  Running it on every sequence
+    -- dragged the focused workspace onto the leftmost monitor after every
+    -- keystroke, so windows appeared to wander between monitors at random and
+    -- screen-directed commands never seemed to work.
+    when (before /= rects) $ do
+      modify $ \st -> st { windowset = rescreen rects (windowset st) }
+      void (broadcastEvent ScreenLayoutChanged)
 
 -- | The screens a 'WindowSet' currently has, current first.
 screensOf :: WindowSet -> [W.Screen WorkspaceId (Layout Window) Window ScreenId ScreenDetail]
@@ -964,22 +982,40 @@ screensOf ws = W.current ws : W.visible ws
 rescreen :: [Rectangle] -> WindowSet -> WindowSet
 rescreen rects ws = ws
     { W.current = (W.current ws) { W.screen = 0, W.screenDetail = SD firstRect }
-    , W.visible = zipWith reseat [1 ..] restRects
-    , W.hidden = newHidden
+    , W.visible = newVisible
+    , W.hidden  = newHidden
     }
   where
     (firstRect, restRects) = case rects of
       (r:rs) -> (r, rs)
       []     -> (Rectangle 0 0 0 0, [])
-    -- Workspaces that were on now-absent screens fall back to hidden.
-    oldVisible = W.visible ws
-    reseat i r = case drop (i - 1) oldVisible of
-      (s:_) -> s { W.screen = fromIntegral i, W.screenDetail = SD r }
-      [] -> case newHidden of
-        (h:_) -> W.Screen h (fromIntegral i) (SD r)
-        []    -> W.Screen (W.workspace (W.current ws)) (fromIntegral i) (SD r)
-    surplus = drop (length restRects) oldVisible
-    newHidden = map W.workspace surplus ++ W.hidden ws
+
+    -- Each additional screen takes one workspace, drawn from the previously
+    -- visible screens first and then from hidden.  Every workspace is consumed
+    -- exactly once.
+    --
+    -- The previous implementation indexed into both lists independently, so
+    -- when the screen count GREW -- one output at startup, three once kanshi
+    -- applies a profile -- every new screen was handed @head newHidden@, and
+    -- the same workspace ended up on several screens at once while still
+    -- appearing in hidden.  That violates StackSet's invariant that a
+    -- workspace occurs exactly once, and the visible symptoms were a status
+    -- bar listing the same workspace repeatedly, windows only ever appearing
+    -- on the first screen, and screen-directed commands doing nothing.
+    (newVisible, newHidden) = go (1 :: Int) restRects (W.visible ws) (W.hidden ws)
+
+    go _ []     surplus hid = ([], map W.workspace surplus ++ hid)
+    go i (r:rs) (s:vs)  hid =
+      let (rest, hid') = go (i + 1) rs vs hid
+      in  (s { W.screen = fromIntegral i, W.screenDetail = SD r } : rest, hid')
+    go i (r:rs) []      (h:hs) =
+      let (rest, hid') = go (i + 1) rs [] hs
+      in  (W.Screen h (fromIntegral i) (SD r) : rest, hid')
+    -- Degenerate: more screens than workspaces.  Nothing distinct is left to
+    -- show, so the current workspace is repeated, as before.
+    go i (r:rs) []      [] =
+      let (rest, hid') = go (i + 1) rs [] []
+      in  (W.Screen (W.workspace (W.current ws)) (fromIntegral i) (SD r) : rest, hid')
 
 -- | Run the manage hook for windows river has just told us about, and insert
 -- them into the 'WindowSet'.
@@ -1191,7 +1227,27 @@ runPending rt = do
 applyLayout :: Runtime -> X ()
 applyLayout rt = do
   ws <- gets windowset
-  let screens = W.current ws : W.visible ws
+  -- By screen id, and NOT @W.current : W.visible@.
+  --
+  -- The render sequence @place_top@s the concatenation of these in order, so
+  -- this is the stacking order.  Written the other way it is a function of
+  -- which screen holds focus -- 'W.view' moves the newly focused screen to the
+  -- head and pushes the old one behind it -- so alternating focus between two
+  -- screens alternates their windows' relative stacking, forever.
+  --
+  -- That is a feedback loop with 'focusFollowsMouse' on, and it was the cause
+  -- of all three storms on 2026-09-04.  river draws a window's borders outside
+  -- its box, so two windows on either side of the seam between two outputs
+  -- overlap there; restacking them changes which one answers river's hit test;
+  -- river reports the new one as @pointer_enter@; hovering turns that into a
+  -- focus change; and the focus change restacks them back.  Measured at 1-4 ms
+  -- a lap, with nothing moving and no geometry changing at all -- which is why
+  -- the @propose_dimensions@ guard, a correct fix for a real defect, did
+  -- nothing for it.
+  --
+  -- Screens are disjoint, so the order between them carries no meaning.  All
+  -- it has to be is stable.
+  let screens = sortOn W.screen (W.current ws : W.visible ws)
   placements <- fmap concat $ forM screens $ \scr -> do
     let wsp = W.workspace scr
         SD rect = W.screenDetail scr
@@ -1232,6 +1288,23 @@ applyLayout rt = do
           Nothing -> pixelColor (if Just win == mFocus then focusedCol else normalCol)
     pure (win, (width, rgba))
 
+  -- What is actually transmitted: the same placements with the border taken
+  -- out of them, per window, since a border override may make one window's
+  -- wider than the rest.  'placements' itself stays as the layout produced it
+  -- -- see 'insetBorder' for which of the two each consumer wants.
+  let contents = [ (win, insetBorder (maybe bw0 fst (M.lookup win borders)) r)
+                 | (win, r) <- placements ]
+
+  -- The order the screens were visited in, what the layout placed, and the
+  -- geometry actually transmitted for it.  The screen order is the one the
+  -- render sequence @place_top@s in, so a trace showing it permute while
+  -- nothing moves is what tells a restacking loop from a geometry one -- and,
+  -- now that it is sorted, what shows it staying put.
+  io $ traceLine $ "layout screens="
+    ++ show [ (W.screen scr, W.tag (W.workspace scr)) | scr <- screens ]
+    ++ " placed=" ++ showPlacements placements
+    ++ " content=" ++ showPlacements contents
+
   raised <- io . readIORef =<< asks (riverRestack . riverState)
   let placed = S.fromList (map fst placements)
       stillUp = filter (`S.member` placed) raised
@@ -1245,7 +1318,7 @@ applyLayout rt = do
 
   io $ modifyIORef' (rtPlan rt) $ \p -> p
     { planSerial     = planSerial p + 1
-    , planPlacements = placements
+    , planPlacements = contents
     , planBorders    = borders
     , planVisible    = placed
     , planRaised     = stillUp
@@ -1262,11 +1335,18 @@ applyLayout rt = do
   bw <- asks (borderWidth . config)
   allKnown <- io . readIORef =<< asks (riverWindows . riverState)
   let placedMap = M.fromList placements
+      -- X11 reported the OUTER corner and the CONTENT size, with the border
+      -- width alongside, and that is what upstream's 'floatLocation' arithmetic
+      -- adds @bw*2@ back onto.  Reporting the layout rectangle as the width --
+      -- as this did -- overstated every window by twice its border.
       attrs w rw = case M.lookup w placedMap of
-        Just r -> WindowAttributes
+        Just r ->
+          let wbw = maybe bw fst (M.lookup w borders)
+              c = insetBorder wbw r
+          in WindowAttributes
           { wa_x = rect_x r, wa_y = rect_y r
-          , wa_width = rect_width r, wa_height = rect_height r
-          , wa_border_width = bw, wa_map_state = waIsViewable
+          , wa_width = rect_width c, wa_height = rect_height c
+          , wa_border_width = wbw, wa_map_state = waIsViewable
           , wa_override_redirect = False }
         Nothing -> let (dw, dh) = rwDimensions rw in WindowAttributes
           { wa_x = 0, wa_y = 0
@@ -1296,6 +1376,9 @@ transmitManage rt conn = do
   plan <- readIORef (rtPlan rt)
   known <- readIORef (rtWindows rt)
   seats <- readIORef (rtSeats rt)
+
+  traceLine $ "manage serial=" ++ show (planSerial plan)
+    ++ " focus=" ++ show (planFocus plan)
 
   -- What user code asked for since the last sequence.  Drained rather than
   -- kept: every one of these is an effect river performs once, so re-sending
@@ -1333,8 +1416,10 @@ transmitManage rt conn = do
       (if ssd then riverWindowV1UseSsd else riverWindowV1UseCsd) conn w
     OpSetPosition w x y -> forM_ (M.lookup w known) $ \rw ->
       riverNodeV1SetPosition conn (rwNode rw) x y
-    OpProposeDimensions w dw dh -> when (M.member w known) $
+    OpProposeDimensions w dw dh -> when (M.member w known) $ do
       riverWindowV1ProposeDimensions conn w (fromIntegral dw) (fromIntegral dh)
+      adjust (rtWindows rt) w $ \x ->
+        x { rwProposed = Just (fromIntegral dw, fromIntegral dh) }
     OpCaptureInput ks mods oneShot gen -> armCapture rt conn seats ks mods oneShot gen
     OpUngrabKeys -> do
       old <- atomicModifyIORef' (rtGrabbed rt) (\bs -> ([], bs))
@@ -1364,10 +1449,28 @@ transmitManage rt conn = do
     OpSetXcursorTheme{} -> pure ()
 
   -- Dimensions are window management state, so they go here rather than in
-  -- the render sequence.
-  forM_ (planPlacements plan) $ \(win, r) -> when (M.member win known) $
-    riverWindowV1ProposeDimensions conn win
-      (fromIntegral (rect_width r)) (fromIntegral (rect_height r))
+  -- the render sequence -- and, being state river keeps, only when the answer
+  -- has moved.  Rendering state is restated in full every frame because river
+  -- forgets it; a proposal is remembered, so restating one is not a no-op but
+  -- a fresh request the server must answer with another @dimensions@ event.
+  --
+  -- Sending it unconditionally is a feedback loop.  Every manage sequence
+  -- re-drove the geometry of every window; each window that could not take the
+  -- proposal exactly settled somewhere else and had its edges move across a
+  -- stationary pointer; river reported the crossing as a genuine
+  -- @pointer_enter@; and with 'focusFollowsMouse' on that crossing queued an
+  -- action, which asked for a manage sequence, which proposed again.  Three
+  -- terminals were enough to sustain it at some seven hundred layout runs a
+  -- second, and a floating GTK dialog -- proposed 1x1 and unable to go below
+  -- its own minimum -- made it permanent.
+  --
+  -- The comparison is against the last proposal, never against the
+  -- @dimensions@ event: see 'rwProposed'.
+  forM_ (planPlacements plan) $ \(win, r) -> forM_ (M.lookup win known) $ \w -> do
+    let want = (fromIntegral (rect_width r), fromIntegral (rect_height r))
+    when (rwProposed w /= Just want) $ do
+      uncurry (riverWindowV1ProposeDimensions conn win) want
+      adjust (rtWindows rt) win $ \x -> x { rwProposed = Just want }
 
   -- Keyboard focus, likewise. A seat whose keyboard has gone to a layer
   -- surface is left alone: river discards focus requests outright while focus
@@ -1490,6 +1593,13 @@ transmitRender rt conn = do
   let winRef = rtWindows rt
   known <- readIORef winRef
 
+  -- Bottom-to-top, as transmitted: river's own @place_top@ appends, so the
+  -- last id here is the one that ends up on top -- and so the one that wins a
+  -- hit test where two windows' borders overlap.
+  traceLine $ "render serial=" ++ show (planSerial plan)
+    ++ " order=" ++ show (map fst (planPlacements plan))
+    ++ " raised=" ++ show (planRaised plan)
+
   forM_ (planPlacements plan) $ \(win, r) -> forM_ (M.lookup win known) $ \w -> do
     riverNodeV1SetPosition conn (rwNode w) (rect_x r) (rect_y r)
     -- Unconditional, where this used to skip a zero width entirely: an
@@ -1519,6 +1629,40 @@ transmitRender rt conn = do
     forM_ (M.lookup win known) $ \w -> riverNodeV1PlaceTop conn (rwNode w)
   forM_ (planRaised plan) $ \win ->
     forM_ (M.lookup win known) $ \w -> riverNodeV1PlaceTop conn (rwNode w)
+
+-- | Take a window's border out of the rectangle the layout gave it.
+--
+-- __A layout rectangle includes the border.__  That is upstream's convention
+-- and this fork already depends on it elsewhere: 'XMonad.Operations.mkAdjust'
+-- subtracts @2*bw@ before applying size hints and adds it back afterwards, and
+-- 'XMonad.Operations.floatLocation' records a float's rectangle with the border
+-- included.  X11 honoured it in @tileWindow@, by sizing the window @2*bw@
+-- smaller than its rectangle and leaving the origin alone -- an X11 window's
+-- position is its /outer/ corner, so the border filled the difference exactly.
+--
+-- river's @set_position@ places the /content/, and @Window.zig@ draws each
+-- border outside it (the left one at @x = -width@).  So keeping the convention
+-- needs the origin moved in by @bw@ as well as the size reduced by @2*bw@;
+-- without that a window is @2*bw@ larger than its tile in each direction and
+-- its borders lie over its neighbours'.
+--
+-- That was not only cosmetic.  Windows at the edge of an output had their
+-- borders drawn onto the /next/ output, where they answered river's hit tests,
+-- which is what let a stationary pointer near a seam belong to a window on
+-- another screen at all.  See 'applyLayout' for what that then drove.
+--
+-- Never smaller than @1x1@, as upstream's @tileWindow@ also guaranteed: a
+-- window narrower than its own border is a proposal no client can take.
+insetBorder :: Dimension -> Rectangle -> Rectangle
+insetBorder bw r = Rectangle
+  { rect_x = rect_x r + fromIntegral bw
+  , rect_y = rect_y r + fromIntegral bw
+  , rect_width = shrink (rect_width r)
+  , rect_height = shrink (rect_height r)
+  }
+  where
+    shrink d | d <= 2 * bw = 1
+             | otherwise   = d - 2 * bw
 
 -- | A dimension bound river reports as zero or less was not stated.
 sizeBound :: Int32 -> Int32 -> Maybe (Dimension, Dimension)

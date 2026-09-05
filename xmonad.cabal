@@ -110,6 +110,7 @@ library
                    XMonad.River.Socket
                    XMonad.River.State
                    XMonad.River.Surface
+                   XMonad.River.Trace
                    XMonad.River.Protocol.Core
                    XMonad.River.Protocol.LayerShell
                    XMonad.River.Protocol.LayerShellClient
