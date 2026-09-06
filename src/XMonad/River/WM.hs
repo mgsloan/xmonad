@@ -43,7 +43,7 @@ import Control.Monad.State (gets, modify)
 import Data.Bits ((.&.), (.|.))
 import Data.IORef
 import Data.List (isSuffixOf, sortOn)
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid (All(..), appEndo)
 import Data.Int (Int32)
 import Data.Word (Word32)
@@ -73,7 +73,7 @@ import XMonad.River.Protocol.XkbBindings
 import XMonad.River.Wire (ObjectId, isNullObject)
 import XMonad.River.Types
 import XMonad.River.Plan
-import XMonad.River.State (InputCapture(..), RiverState(..))
+import XMonad.River.State (InputCapture(..), RiverState(..), updatePlacement)
 import XMonad.River.Trace (initTrace, showPlacements, traceLine)
 import qualified XMonad.StackSet as W
 
@@ -1262,8 +1262,69 @@ runPending rt = do
 
 -- | Run the layout for every visible screen, propose the resulting dimensions,
 -- set keyboard focus, and stash the rectangles for the render sequence.
+-- | Make a float's recorded rectangle agree with the size its client took.
+--
+-- @propose_dimensions@ is a request, and the @dimensions@ event answering it
+-- carries what the window actually settled on.  For a /tiled/ window that
+-- answer is deliberately discarded: the layout owns the geometry, and
+-- re-proposing on the difference between a proposal and a reported size is the
+-- comparison that cannot converge -- see 'rwProposed'.
+--
+-- A float is the opposite case.  Nothing else owns its rectangle, so if the
+-- record does not follow what the client took, the two drift apart and never
+-- come back.  The way in is a window that states no size hints at all: river
+-- has sent no @dimensions@ when the manage hook runs, so 'floatLocation' has
+-- nothing to go on and records @0x0@ -- river's "the window will be allowed to
+-- decide its own dimensions".  The client then draws itself at its natural
+-- size while the record stays at zero, and a resize drag works from zero,
+-- proposing sizes far below anything the client will accept.  The window never
+-- moves and the drag looks dead.
+--
+-- Adopting the answer is not the non-convergent comparison, because it does
+-- not re-propose on a difference: the proposal is still gated on the /proposal/
+-- moving.  One round settles it -- propose P, the client takes A, record A,
+-- and the next sequence proposes A, which the client already chose and takes
+-- again.  Both drags capture their starting rectangle once, so a record
+-- updated mid-drag cannot disturb the arithmetic of a drag in progress either.
+--
+-- The recorded rectangle includes the border and what river reports does not,
+-- which is the same asymmetry 'insetBorder' handles when transmitting, so the
+-- border goes back on here.
+reconcileFloats :: X ()
+reconcileFloats = do
+  -- Never while a drag is in progress.  For its duration the drag owns the
+  -- rectangle and rewrites it on every motion step, so reconciling against the
+  -- size the client last reported chases the drag and is undone by the next
+  -- step -- measured at ~2,600 reconciliations across one six-second resize,
+  -- none of which survived.  Waiting costs nothing: the drag's final rectangle
+  -- is reconciled once, on the first sequence after it ends.
+  drag <- gets dragging
+  floats <- gets (W.floating . windowset)
+  unless (isJust drag || M.null floats) $ do
+    known <- io . readIORef =<< asks (riverWindows . riverState)
+    ref <- asks (riverPlacements . riverState)
+    placements <- io (readIORef ref)
+    bw0 <- asks (borderWidth . config)
+    forM_ (M.keys floats) $ \w ->
+      forM_ ((,) <$> M.lookup w known <*> lookup w placements) $ \(rw, r) -> do
+        (mWidth, _) <- io (lookupBorderOverride w)
+        let bw = fromMaybe bw0 mWidth
+            (aw, ah) = rwDimensions rw
+            wantW = fromIntegral aw + 2 * bw
+            wantH = fromIntegral ah + 2 * bw
+        when (aw > 0 && ah > 0
+                && (wantW /= rect_width r || wantH /= rect_height r)) $ do
+          io $ traceLine $ "reconcile float w=" ++ show w
+            ++ " recorded=" ++ show (rect_width r, rect_height r)
+            ++ " actual=" ++ show (wantW, wantH)
+          io (updatePlacement ref w r { rect_width = wantW, rect_height = wantH })
+          (_, rr) <- floatLocation w
+          modify $ \st -> st { windowset = W.float w rr (windowset st) }
+
 applyLayout :: Runtime -> X ()
 applyLayout rt = do
+  -- Before reading the windowset, because this can change it.
+  reconcileFloats
   ws <- gets windowset
   -- By screen id, and NOT @W.current : W.visible@.
   --
