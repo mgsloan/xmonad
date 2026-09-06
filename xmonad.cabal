@@ -125,6 +125,7 @@ library
                  , deepseq
                  , network
                  , store-core
+                 , text
   -- The only C in the package.  Wayland attaches file descriptors as
   -- SCM_RIGHTS to the same sendmsg that carries the request bytes, which
   -- network cannot express and whose CMSG_* macros are not worth

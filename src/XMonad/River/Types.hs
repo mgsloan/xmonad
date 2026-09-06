@@ -15,6 +15,7 @@ module XMonad.River.Types
   , Position
   , Dimension
   , insetBorder
+  , decodeUtf8
     -- * Input
   , KeyMask
   , KeySym
@@ -43,6 +44,9 @@ module XMonad.River.Types
   ) where
 
 import Data.ByteString (ByteString)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+import Data.Text.Encoding.Error (lenientDecode)
 import Data.Int (Int32)
 import Data.Word (Word32)
 
@@ -514,3 +518,27 @@ insetBorder bw r = Rectangle
     shrink 0 = 0
     shrink d | d <= 2 * bw = 1
              | otherwise   = d - 2 * bw
+
+-- | Decode a string as it arrives on the wire.
+--
+-- Wayland strings are UTF-8 by specification.  'Data.ByteString.Char8.unpack'
+-- is not a decoder: it maps each /byte/ to a 'Char', which is Latin-1, so an
+-- em-dash -- @e2 80 94@ -- becomes the three characters @U+00E2 U+0080
+-- U+0094@.  Written back out through a UTF-8 handle those re-encode faithfully
+-- as @c3 a2 c2 80 c2 94@, so the mangling is a round trip inside the window
+-- manager and nothing downstream can undo it.
+--
+-- Under X11 this was Xlib's job: upstream reads @_NET_WM_NAME@ through
+-- @wcTextPropertyToTextList@, which converts according to the locale, which is
+-- why this package depends on @setlocale@ at all.  There is no Xlib here, so
+-- the decode has to be done rather than delegated.
+--
+-- It matters beyond a status bar reading badly.  'XMonad.ManageHook.title' and
+-- 'XMonad.ManageHook.className' are what a manage hook matches on, so a rule
+-- naming any window whose title is not pure ASCII silently never fires.
+--
+-- Lenient by choice.  A client may set whatever bytes it likes, and refusing
+-- to name a window is worse than naming it imperfectly, so invalid input
+-- yields U+FFFD and decoding continues.
+decodeUtf8 :: ByteString -> String
+decodeUtf8 = T.unpack . TE.decodeUtf8With lenientDecode
