@@ -501,5 +501,16 @@ insetBorder bw r = Rectangle
   , rect_height = shrink (rect_height r)
   }
   where
+    -- Zero is not a size, so it must survive untouched.  river documents a
+    -- proposal of zero as "the window will be allowed to decide its own
+    -- dimensions", and that is exactly what a float which has never been laid
+    -- out is recorded as -- 'XMonad.Operations.floatLocation' has nothing to
+    -- go on when a window states neither dimensions nor a minimum.  Clamping
+    -- it to 1 turns "you decide" into a one-pixel proposal, and a client that
+    -- obeys is then an 11x11 window nobody can see: measured on PyCharm's
+    -- Settings dialog, which took it, while its find popup ignored it and
+    -- sized itself.  That is the same defect as the 1x1 float, arriving by a
+    -- different route.
+    shrink 0 = 0
     shrink d | d <= 2 * bw = 1
              | otherwise   = d - 2 * bw
