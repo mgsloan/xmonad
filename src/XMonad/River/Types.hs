@@ -14,6 +14,8 @@ module XMonad.River.Types
   , parseColor, parseColorMaybe
   , Position
   , Dimension
+  , insetBorder
+  , decodeUtf8
     -- * Input
   , KeyMask
   , KeySym
@@ -42,6 +44,9 @@ module XMonad.River.Types
   ) where
 
 import Data.ByteString (ByteString)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+import Data.Text.Encoding.Error (lenientDecode)
 import Data.Int (Int32)
 import Data.Word (Word32)
 
@@ -348,6 +353,16 @@ data RiverWindow = RiverWindow
   , rwIdentifier :: !(Maybe ByteString)
   , rwParent     :: !(Maybe ObjectId)
   , rwDimensions :: !(Int32, Int32)
+  , rwProposed   :: !(Maybe (Int32, Int32))
+    -- ^ The dimensions most recently sent to this window with
+    -- @propose_dimensions@, or 'Nothing' if none have been.
+    --
+    -- Deliberately not 'rwDimensions'.  A proposal is a request, and the
+    -- @dimensions@ event answering it carries what the window actually
+    -- settled on after applying its own constraints, so for any window with
+    -- a size increment or a minimum the two legitimately differ forever.
+    -- Re-proposing on that difference never converges.  What can be compared
+    -- is one proposal against the next, which is what this holds.
   , rwSizeHints  :: !SizeHints
     -- ^ From @river_window_v1.dimensions_hint@.  A zero or negative bound
     -- means the window did not state one, and becomes 'Nothing'.
@@ -458,3 +473,72 @@ type EventType = Word32
 keyPress, keyRelease :: EventType
 keyPress   = 2
 keyRelease = 3
+
+-- | Take a window's border out of the rectangle the layout gave it.
+--
+-- __A layout rectangle includes the border.__  That is upstream's convention
+-- and this fork already depends on it elsewhere: 'XMonad.Operations.mkAdjust'
+-- subtracts @2*bw@ before applying size hints and adds it back afterwards, and
+-- 'XMonad.Operations.floatLocation' records a float's rectangle with the border
+-- included.  X11 honoured it in @tileWindow@, by sizing the window @2*bw@
+-- smaller than its rectangle and leaving the origin alone -- an X11 window's
+-- position is its /outer/ corner, so the border filled the difference exactly.
+--
+-- river's @set_position@ places the /content/, and @Window.zig@ draws each
+-- border outside it (the left one at @x = -width@).  So keeping the convention
+-- needs the origin moved in by @bw@ as well as the size reduced by @2*bw@;
+-- without that a window is @2*bw@ larger than its tile in each direction and
+-- its borders lie over its neighbours'.
+--
+-- That was not only cosmetic.  Windows at the edge of an output had their
+-- borders drawn onto the /next/ output, where they answered river's hit tests,
+-- which is what let a stationary pointer near a seam belong to a window on
+-- another screen at all.  See 'applyLayout' for what that then drove.
+--
+-- Never smaller than @1x1@, as upstream's @tileWindow@ also guaranteed: a
+-- window narrower than its own border is a proposal no client can take.
+insetBorder :: Dimension -> Rectangle -> Rectangle
+insetBorder bw r = Rectangle
+  { rect_x = rect_x r + fromIntegral bw
+  , rect_y = rect_y r + fromIntegral bw
+  , rect_width = shrink (rect_width r)
+  , rect_height = shrink (rect_height r)
+  }
+  where
+    -- Zero is not a size, so it must survive untouched.  river documents a
+    -- proposal of zero as "the window will be allowed to decide its own
+    -- dimensions", and that is exactly what a float which has never been laid
+    -- out is recorded as -- 'XMonad.Operations.floatLocation' has nothing to
+    -- go on when a window states neither dimensions nor a minimum.  Clamping
+    -- it to 1 turns "you decide" into a one-pixel proposal, and a client that
+    -- obeys is then an 11x11 window nobody can see: measured on PyCharm's
+    -- Settings dialog, which took it, while its find popup ignored it and
+    -- sized itself.  That is the same defect as the 1x1 float, arriving by a
+    -- different route.
+    shrink 0 = 0
+    shrink d | d <= 2 * bw = 1
+             | otherwise   = d - 2 * bw
+
+-- | Decode a string as it arrives on the wire.
+--
+-- Wayland strings are UTF-8 by specification.  'Data.ByteString.Char8.unpack'
+-- is not a decoder: it maps each /byte/ to a 'Char', which is Latin-1, so an
+-- em-dash -- @e2 80 94@ -- becomes the three characters @U+00E2 U+0080
+-- U+0094@.  Written back out through a UTF-8 handle those re-encode faithfully
+-- as @c3 a2 c2 80 c2 94@, so the mangling is a round trip inside the window
+-- manager and nothing downstream can undo it.
+--
+-- Under X11 this was Xlib's job: upstream reads @_NET_WM_NAME@ through
+-- @wcTextPropertyToTextList@, which converts according to the locale, which is
+-- why this package depends on @setlocale@ at all.  There is no Xlib here, so
+-- the decode has to be done rather than delegated.
+--
+-- It matters beyond a status bar reading badly.  'XMonad.ManageHook.title' and
+-- 'XMonad.ManageHook.className' are what a manage hook matches on, so a rule
+-- naming any window whose title is not pure ASCII silently never fires.
+--
+-- Lenient by choice.  A client may set whatever bytes it likes, and refusing
+-- to name a window is worse than naming it imperfectly, so invalid input
+-- yields U+FFFD and decoding continues.
+decodeUtf8 :: ByteString -> String
+decodeUtf8 = T.unpack . TE.decodeUtf8With lenientDecode

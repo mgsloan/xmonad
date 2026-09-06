@@ -29,14 +29,18 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install C dependencies
-        # libxkbcommon only.  Nothing here links X11 any more: the X11 sources
-        # are gone and upstream's interface is a committed recording, which
-        # check-subset.sh reads without building anything.
+        # libxkbcommon is what the library itself needs; nothing here links X11,
+        # and check-subset.sh reads a committed recording rather than building
+        # upstream.  libx11-dev is still required, though, because check-all.sh
+        # ends by regenerating the keysym tables and util/gen-keysyms.sh reads
+        # their values out of a real X11 build -- deliberately, so the numbers
+        # are true by construction rather than transcribed.
         run: |
           set -ex
           sudo apt update -y
           sudo apt install -y \
             libxkbcommon-dev \
+            libx11-dev \
             #
 
       - name: Refresh caches once a month

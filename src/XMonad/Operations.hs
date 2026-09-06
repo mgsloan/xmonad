@@ -75,7 +75,7 @@ module XMonad.Operations (
 
 import XMonad.Core
 import XMonad.River.Plan (Op(..))
-import XMonad.River.Runtime (emitNow, emitOp, setBorderColor)
+import XMonad.River.Runtime (emitNow, emitOp, lookupBorderOverride, setBorderColor)
 import XMonad.River.State (RiverState(..), updatePlacement)
 import XMonad.River.Types
 import XMonad.River.Protocol.WindowManagement
@@ -608,12 +608,33 @@ floatLocation w = do
             pure $ case M.lookup w known of
                 Nothing -> (W.screen sc, W.RationalRect 0 0 1 1)
                 Just rw ->
-                    let (width, height) = rwDimensions rw
-                        rwidth  = fromIntegral (max 1 width)  % sw
-                        rheight = fromIntegral (max 1 height) % sh
+                    let (width, height) = sizeOf rw
+                        rwidth  = fromIntegral width  % sw
+                        rheight = fromIntegral height % sh
                     in ( W.screen sc
                        , W.RationalRect (0.5 - rwidth / 2) (0.5 - rheight / 2)
                                         rwidth rheight )
+
+-- | The best size available for a window that has never been laid out.
+--
+-- A window river has not yet sent a @dimensions@ event for reports @0 x 0@,
+-- and that is the ordinary case here: the protocol does not display a new
+-- window until the window manager has proposed dimensions for it, so a
+-- @doFloat@ manage hook always runs before any real size exists.  Clamping
+-- that to @1 x 1@, as this used to, proposed a one-pixel window -- which a
+-- GTK dialog with a 353x225 minimum can never take, leaving its recorded
+-- rectangle permanently disagreeing with the window on screen.
+--
+-- The minimum from @dimensions_hint@ is the honest answer when there is one:
+-- it arrives before the first manage sequence, and a window asked for its
+-- minimum takes it exactly.  Failing that, zero, which river documents as
+-- "the window will be allowed to decide its own dimensions" and is a more
+-- truthful statement of not knowing than any invented number.
+sizeOf :: RiverWindow -> (Dimension, Dimension)
+sizeOf rw = case rwDimensions rw of
+    (width, height) | width > 0 && height > 0 ->
+        (fromIntegral width, fromIntegral height)
+    _ -> fromMaybe (0, 0) (sh_min_size (rwSizeHints rw))
 
 -- | A rectangle as a fraction of a screen, which is how the 'WindowSet'
 -- records a float.
@@ -728,8 +749,22 @@ dragOrigin = io . readIORef =<< asks (riverDragOrigin . riverState)
 -- had to apply them to work out the rectangle they want.
 dragWindowTo :: Window -> Rectangle -> X ()
 dragWindowTo w r = do
-    emitOp (OpSetPosition w (rect_x r) (rect_y r))
-    emitOp (OpProposeDimensions w (rect_width r) (rect_height r))
+    -- Through 'insetBorder', for the same reason the render sequence goes
+    -- through it: a layout rectangle includes the border and what river is
+    -- told must not.  Sending the raw rectangle here made a drag hand the
+    -- client a size @2*borderWidth@ larger than the one the render sequence
+    -- transmitted for the very same window, so every motion step resized it
+    -- twice, to two sizes ten pixels apart -- visible as the window flickering
+    -- between two widths for the whole drag.
+    --
+    -- 'updatePlacement' still records the rectangle as the layout would state
+    -- it, border included, because that is the convention 'riverPlacements'
+    -- holds and what 'floatLocation' reads back.
+    bw0 <- asks (borderWidth . config)
+    (mWidth, _) <- io (lookupBorderOverride w)
+    let c = insetBorder (fromMaybe bw0 mWidth) r
+    emitOp (OpSetPosition w (rect_x c) (rect_y c))
+    emitOp (OpProposeDimensions w (rect_width c) (rect_height c))
     ref <- asks (riverPlacements . riverState)
     updatePlacement ref w r
 

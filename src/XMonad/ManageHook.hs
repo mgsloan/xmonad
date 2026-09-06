@@ -47,7 +47,6 @@ module XMonad.ManageHook (
 import Control.Monad.Reader
 import Data.IORef (readIORef)
 import Data.Monoid (Endo(..))
-import qualified Data.ByteString.Char8 as BC
 import qualified Data.Map as M
 
 import XMonad.Core
@@ -106,7 +105,7 @@ askWindow = do
 -- @xdg_toplevel.set_title@ -- the same string X11 clients put in
 -- @_NET_WM_NAME@.
 title :: Query String
-title = maybe "" (maybe "" BC.unpack . rwTitle) <$> askWindow
+title = maybe "" (maybe "" decodeUtf8 . rwTitle) <$> askWindow
 
 -- | Return the application name; i.e., @app_id@.  River has no separate
 -- instance name, so this is the same string as 'className'.
@@ -120,7 +119,7 @@ resource = appName
 -- | Return the resource class; i.e., the string a client sets with
 -- @xdg_toplevel.set_app_id@.
 className :: Query String
-className = maybe "" (maybe "" BC.unpack . rwAppId) <$> askWindow
+className = maybe "" (maybe "" decodeUtf8 . rwAppId) <$> askWindow
 
 -- | Return whether the window will be a floating window or not
 willFloat :: Query Bool

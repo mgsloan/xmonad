@@ -41,6 +41,13 @@
 
 set -euo pipefail
 
+# sort and comm have to agree on an order, and under a UTF-8 locale they do
+# not: GNU sort collates by the locale's rules while comm checks the order it
+# is given, so this script fails with "comm: file 1 is not in sorted order"
+# and compares nothing.  C collation is byte order -- stable across machines,
+# libc versions and whatever the caller's environment happens to be.
+export LC_ALL=C
+
 cd "$(dirname "$0")/../.."
 
 api=tests/api
