@@ -59,7 +59,7 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
 import XMonad.Core
-import XMonad.Operations (StateFile (..), broadcastMessage, focus, readStateFile, scaleRationalRect, writeStateToFile)
+import XMonad.Operations (StateFile (..), broadcastMessage, floatLocation, focus, isFixedSizeOrTransient, readStateFile, scaleRationalRect, writeStateToFile)
 import XMonad.River.Runtime (emitOp, setModifierWatcher, takeNowOps, takeOps, RestartRequested(..), forgetBorderOverride, takeModifierWatcher, lookupBorderOverride, publishGeometry, publishSizeHints, sendRestart, setMainThread, warnUnimplemented)
 import qualified XMonad.River.Control as Ctl
 import XMonad.River.Client (closeAllClients)
@@ -1058,12 +1058,50 @@ adoptNewWindows = do
     -- is the actual question being asked: is this already a managed window.
     managed <- gets (W.allWindows . windowset)
     unless (rwObject w `elem` managed) $ do
+      let win = rwObject w
+      -- Upstream's 'XMonad.Operations.manage' floats a window that is
+      -- transient or fixed-size /before/ running the manage hook, and that --
+      -- not any config rule -- is where every dialog on an xmonad desktop
+      -- gets its floating from.  A config names only the handful of windows
+      -- whose own app_id has to be recognised; the file chooser, the print
+      -- dialog, the alert box and the preferences window are all floated by
+      -- this rule and appear in no config anywhere.  Porting the hook but not
+      -- this is what left them tiled.
+      --
+      -- 'isFixedSizeOrTransient' answers from what river has already reported
+      -- -- @dimensions_hint@ for the size and @river_window_v1.parent@, which
+      -- is @xdg_toplevel.set_parent@, for the transience -- so the 'Display'
+      -- it takes for signature compatibility goes unread.
+      autoFloat <- withDisplay $ \d -> isFixedSizeOrTransient d win
+      -- Asked before the hook runs, as upstream asks it: a window being
+      -- managed for the first time has been through no layout run, so
+      -- 'floatLocation' centres it on the current screen at the size river
+      -- reports.
+      rr <- snd <$> floatLocation win
+      io $ traceLine $ "adopt win=" ++ show win
+        ++ " appid=" ++ show (maybe "" decodeUtf8 (rwAppId w))
+        ++ " title=" ++ show (maybe "" decodeUtf8 (rwTitle w))
+        ++ " parent=" ++ show (rwParent w)
+        ++ " minmax=" ++ show (sh_min_size (rwSizeHints w), sh_max_size (rwSizeHints w))
+        ++ " autofloat=" ++ show autoFloat
       mh <- asks (manageHook . config)
-      g <- userCodeDef (mempty) (runQuery mh (rwObject w))
+      g <- userCodeDef (mempty) (runQuery mh win)
       ws' <- gets windowset
-      let placed = W.insertUp (rwObject w) ws'
+      -- Keep a float that would hang off the edge on the screen, as upstream
+      -- does.  'floatLocation' centres a first-time window, so this only ever
+      -- catches one whose remembered rectangle no longer fits.
+      let keepOnScreen r@(W.RationalRect x y wid h)
+            | x + wid > 1 || y + h > 1 || x < 0 || y < 0 =
+                W.RationalRect (0.5 - wid / 2) (0.5 - h / 2) wid h
+            | otherwise = r
+          -- The manage hook is applied last, exactly as upstream applies it
+          -- last, so a config rule still outranks this: 'doShift' moves the
+          -- window and leaves it floating, and a rule that wants a dialog
+          -- tiled can sink it.
+          placed | autoFloat = W.float win (keepOnScreen rr) (W.insertUp win ws')
+                 | otherwise = W.insertUp win ws'
       modify $ \st -> st { windowset = appEndo g placed }
-      void (broadcastEvent (WindowAdded (rwObject w)))
+      void (broadcastEvent (WindowAdded win))
 
 -- | Run the user's startup hook exactly once, after the first manage sequence
 -- has been finished.
