@@ -75,7 +75,7 @@ module XMonad.Operations (
 
 import XMonad.Core
 import XMonad.River.Plan (Op(..))
-import XMonad.River.Runtime (emitNow, emitOp, setBorderColor)
+import XMonad.River.Runtime (emitNow, emitOp, lookupBorderOverride, setBorderColor)
 import XMonad.River.State (RiverState(..), updatePlacement)
 import XMonad.River.Types
 import XMonad.River.Protocol.WindowManagement
@@ -749,8 +749,22 @@ dragOrigin = io . readIORef =<< asks (riverDragOrigin . riverState)
 -- had to apply them to work out the rectangle they want.
 dragWindowTo :: Window -> Rectangle -> X ()
 dragWindowTo w r = do
-    emitOp (OpSetPosition w (rect_x r) (rect_y r))
-    emitOp (OpProposeDimensions w (rect_width r) (rect_height r))
+    -- Through 'insetBorder', for the same reason the render sequence goes
+    -- through it: a layout rectangle includes the border and what river is
+    -- told must not.  Sending the raw rectangle here made a drag hand the
+    -- client a size @2*borderWidth@ larger than the one the render sequence
+    -- transmitted for the very same window, so every motion step resized it
+    -- twice, to two sizes ten pixels apart -- visible as the window flickering
+    -- between two widths for the whole drag.
+    --
+    -- 'updatePlacement' still records the rectangle as the layout would state
+    -- it, border included, because that is the convention 'riverPlacements'
+    -- holds and what 'floatLocation' reads back.
+    bw0 <- asks (borderWidth . config)
+    (mWidth, _) <- io (lookupBorderOverride w)
+    let c = insetBorder (fromMaybe bw0 mWidth) r
+    emitOp (OpSetPosition w (rect_x c) (rect_y c))
+    emitOp (OpProposeDimensions w (rect_width c) (rect_height c))
     ref <- asks (riverPlacements . riverState)
     updatePlacement ref w r
 

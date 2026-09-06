@@ -1630,40 +1630,6 @@ transmitRender rt conn = do
   forM_ (planRaised plan) $ \win ->
     forM_ (M.lookup win known) $ \w -> riverNodeV1PlaceTop conn (rwNode w)
 
--- | Take a window's border out of the rectangle the layout gave it.
---
--- __A layout rectangle includes the border.__  That is upstream's convention
--- and this fork already depends on it elsewhere: 'XMonad.Operations.mkAdjust'
--- subtracts @2*bw@ before applying size hints and adds it back afterwards, and
--- 'XMonad.Operations.floatLocation' records a float's rectangle with the border
--- included.  X11 honoured it in @tileWindow@, by sizing the window @2*bw@
--- smaller than its rectangle and leaving the origin alone -- an X11 window's
--- position is its /outer/ corner, so the border filled the difference exactly.
---
--- river's @set_position@ places the /content/, and @Window.zig@ draws each
--- border outside it (the left one at @x = -width@).  So keeping the convention
--- needs the origin moved in by @bw@ as well as the size reduced by @2*bw@;
--- without that a window is @2*bw@ larger than its tile in each direction and
--- its borders lie over its neighbours'.
---
--- That was not only cosmetic.  Windows at the edge of an output had their
--- borders drawn onto the /next/ output, where they answered river's hit tests,
--- which is what let a stationary pointer near a seam belong to a window on
--- another screen at all.  See 'applyLayout' for what that then drove.
---
--- Never smaller than @1x1@, as upstream's @tileWindow@ also guaranteed: a
--- window narrower than its own border is a proposal no client can take.
-insetBorder :: Dimension -> Rectangle -> Rectangle
-insetBorder bw r = Rectangle
-  { rect_x = rect_x r + fromIntegral bw
-  , rect_y = rect_y r + fromIntegral bw
-  , rect_width = shrink (rect_width r)
-  , rect_height = shrink (rect_height r)
-  }
-  where
-    shrink d | d <= 2 * bw = 1
-             | otherwise   = d - 2 * bw
-
 -- | A dimension bound river reports as zero or less was not stated.
 sizeBound :: Int32 -> Int32 -> Maybe (Dimension, Dimension)
 sizeBound w h
